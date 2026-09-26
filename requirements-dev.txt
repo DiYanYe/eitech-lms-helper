@@ -1,0 +1,4 @@
+# 构建期依赖（打包用），运行依赖见 requirements.txt
+# 安装：pip install -r requirements-dev.txt
+pyinstaller>=6.10
+pillow

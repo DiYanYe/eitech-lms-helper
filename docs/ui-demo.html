@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>东方理工 LMS 助手 — UI Demo（模拟数据）</title>
+<!--
+  配色规范（取自 VI 色板图实测）：
+  · 标准色  #92071C（RGB 146,7,28）——图示 100%→20% 即其透明度阶梯，界面内用 rgba() 复用
+  · 辅助色  #FDB837（琥珀）/ #AAA9A1（暖灰）
+  · 三色语义：红＝品牌/需行动/禁止；琥珀＝进行中/注意；灰＝完成/无需动作。全界面仅这三个色相。
+  交互约定：
+  · 未登录时主界面即登录引导；登录成功自动进入资料下载（导航栏不常驻登录项）
+  · "浏览器打开 / 双击作业"直接调用系统浏览器，不弹窗
+  · 更改下载目录 → 弹出系统目录选择对话框（Demo 用浏览器原生 webkitdirectory 选择器模拟）
+-->
+<style>
+:root{
+  --brand:#92071C;
+  --brand-deep:#7A0617;
+  --amber:#FDB837;
+  --amber-ink:#7A5200;
+  --gray:#AAA9A1;
+  --ink:#241A1D;
+  --muted:#8A8378;
+  --bg:#FAF7F4;
+  --card:#FFFFFF;
+  --line:rgba(170,169,161,.42);
+  --brand-08:rgba(146,7,28,.08);
+  --brand-12:rgba(146,7,28,.12);
+  --brand-04:rgba(146,7,28,.04);
+  --amber-18:rgba(253,184,55,.18);
+  --gray-16:rgba(170,169,161,.16);
+  --shadow:0 1px 2px rgba(36,26,29,.05),0 8px 24px rgba(36,26,29,.06);
+  --side-a:#3A030B;   /* 标准色 40% 叠黑 */
+  --side-b:#1D0106;   /* 标准色 20% 叠黑 */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:"Microsoft YaHei UI","PingFang SC","Segoe UI",system-ui,sans-serif;
+  font-size:14px;color:var(--ink);background:var(--bg);overflow:hidden;
+}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font:inherit;color:inherit}
+::selection{background:var(--amber-18)}
+
+/* ========== 布局骨架 ========== */
+#app{display:flex;height:100vh}
+#sidebar{
+  width:232px;flex:none;display:flex;flex-direction:column;
+  background:linear-gradient(180deg,var(--side-a) 0%,var(--side-b) 100%);
+  color:#F7EDEA;padding:22px 14px 16px;
+}
+#main{flex:1;min-width:0;overflow:auto;padding:26px 32px 32px}
+.page{display:none;max-width:1080px;margin:0 auto}
+.page.active{display:block;animation:fade .18s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ========== 侧边栏 ========== */
+.brand{display:flex;align-items:center;gap:10px;padding:2px 8px 0}
+.brand-dot{width:10px;height:10px;border-radius:50%;background:var(--amber);flex:none;
+  box-shadow:0 0 0 4px rgba(253,184,55,.15)}
+.brand-name{font-size:16px;font-weight:700;letter-spacing:.5px}
+.brand-sub{font-size:11px;color:rgba(247,237,234,.5);padding:4px 8px 0}
+#nav{margin-top:22px;display:flex;flex-direction:column;gap:2px}
+.nav-item{
+  position:relative;display:flex;align-items:center;gap:10px;text-align:left;
+  padding:10px 12px;border-radius:9px;color:rgba(247,237,234,.72);font-size:13.5px;
+  transition:background .15s,color .15s;
+}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(253,184,55,.13);color:var(--amber);font-weight:600}
+.nav-item.active::before{
+  content:"";position:absolute;left:-14px;top:8px;bottom:8px;width:3px;
+  border-radius:0 3px 3px 0;background:var(--amber);
+}
+.nav-badge{margin-left:auto;font-size:11px;background:rgba(146,7,28,.9);color:#fff;
+  border-radius:99px;padding:1px 7px}
+#side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.demo-badge{
+  font-size:11px;color:rgba(253,184,55,.85);border:1px solid rgba(253,184,55,.3);
+  border-radius:8px;padding:7px 10px;line-height:1.6;background:rgba(253,184,55,.05);
+}
+.user-chip{display:flex;align-items:center;gap:9px;padding:8px;border-radius:9px;font-size:12px;
+  color:rgba(247,237,234,.6);cursor:pointer;transition:background .15s;text-align:left}
+.user-chip:hover{background:rgba(255,255,255,.06)}
+.avatar{width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:rgba(253,184,55,.15);color:var(--amber);font-weight:700;font-size:12px}
+
+/* ========== 通用组件 ========== */
+.page-title{font-size:21px;font-weight:700;letter-spacing:.3px}
+.page-hint{color:var(--muted);font-size:12.5px;margin-top:5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:9px 18px;
+  font-size:13.5px;font-weight:600;transition:all .15s;border:1px solid transparent;white-space:nowrap;
+}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-primary:hover{background:var(--brand-deep)}
+.btn-primary:disabled{background:rgba(170,169,161,.5);cursor:not-allowed}
+.btn-ghost{background:#fff;border-color:var(--line);color:#5C534E}
+.btn-ghost:hover{border-color:var(--brand);color:var(--brand)}
+.btn-danger-ghost{background:var(--brand-08);color:var(--brand)}
+.btn-danger-ghost:hover{background:var(--brand-12)}
+.btn-sm{padding:6px 13px;font-size:12.5px;border-radius:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  border-radius:99px;padding:3px 10px}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip-red{background:var(--brand-08);color:var(--brand)}
+.chip-amber{background:var(--amber-18);color:var(--amber-ink)}
+.chip-gray{background:var(--gray-16);color:#6E6A62}
+.muted{color:var(--muted)}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+select.sel{
+  appearance:none;background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="%235C534E" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>') no-repeat right 12px center;
+  border:1px solid var(--line);border-radius:9px;padding:9px 32px 9px 13px;font-weight:600;
+  cursor:pointer;transition:border-color .15s;
+}
+select.sel:hover{border-color:var(--brand)}
+.divider{height:22px;width:1px;background:var(--line);margin:0 2px}
+
+/* ========== 登录页 ========== */
+.login-wrap{display:grid;place-items:center;padding-top:6vh}
+.login-card{width:600px;padding:34px 38px}
+.login-steps{margin-top:20px;display:flex;flex-direction:column;gap:2px}
+.step{display:flex;align-items:center;gap:12px;padding:9px 6px;border-radius:8px;font-size:13.5px;color:var(--muted)}
+.step .mark{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+  font-size:12px;border:1.5px solid var(--line);color:var(--gray);flex:none;transition:all .2s}
+.step.running{color:var(--ink)}
+.step.running .mark{border-color:var(--amber);background:var(--amber-18);color:var(--amber-ink)}
+.step.done{color:var(--ink)}
+.step.done .mark{border-color:transparent;background:var(--brand);color:#fff}
+.banner{margin-top:18px;border-radius:10px;padding:12px 16px;font-size:13.5px;display:none}
+.banner.ok{display:block;background:var(--brand-08);color:var(--brand);border:1px solid rgba(146,7,28,.18)}
+.login-actions{margin-top:22px;display:flex;gap:10px;justify-content:center}
+
+/* ========== 资料页 ========== */
+.dir-box{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);
+  border-radius:9px;padding:6px 8px 6px 12px;max-width:100%}
+.dir-box .dir-label{font-size:12px;color:var(--muted);flex:none}
+.dir-box .dir-path{font-family:Consolas,monospace;font-size:12px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:300px}
+.tree-card{margin-top:14px;padding:6px 0;overflow:auto;max-height:calc(100vh - 320px)}
+.tree{list-style:none;font-size:13.5px}
+.tree ul{list-style:none;padding-left:26px;position:relative}
+.tree ul::before{content:"";position:absolute;left:11px;top:0;bottom:0;width:1px;background:var(--line)}
+.tree-row{display:flex;align-items:center;gap:8px;padding:7px 18px 7px 12px;cursor:default;
+  border-left:2px solid transparent}
+.tree-row:hover{background:var(--brand-04)}
+.tree-row .caret{width:16px;height:16px;display:grid;place-items:center;color:var(--gray);
+  font-size:10px;cursor:pointer;transition:transform .15s;flex:none}
+.tree-row .caret.open{transform:rotate(90deg)}
+.tree-row .caret.leaf-lock{visibility:hidden}
+.cbx{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--gray);flex:none;
+  display:grid;place-items:center;background:#fff;cursor:pointer;transition:all .12s}
+.cbx:hover{border-color:var(--brand)}
+.cbx.on{background:var(--brand);border-color:var(--brand)}
+.cbx.on::after{content:"";width:8px;height:5px;border-left:2px solid #fff;border-bottom:2px solid #fff;
+  transform:rotate(-45deg) translate(0,-1px)}
+.cbx.half{background:var(--brand);border-color:var(--brand)}
+.cbx.half::after{content:"";width:8px;height:2px;background:#fff;border-radius:1px}
+.cbx.disabled{background:var(--gray-16);border-color:var(--line);cursor:not-allowed}
+.node-ico{width:24px;display:grid;place-items:center;flex:none}
+/* 文件类型图标：彩色 SVG（用户提供，见 图标/ 目录，内联为 symbol 雪碧图），统一 22px；
+   未提供图标的类型（压缩包/未知）回退灰底扩展名徽章 */
+.fico{width:22px;height:22px;flex:none;display:block}
+.fico-badge{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;
+  justify-content:center;font-size:7.5px;font-weight:800;color:#6E6A62;background:var(--gray-16);
+  border:1px solid var(--line);flex:none;letter-spacing:.2px;line-height:1}
+.node-name{font-weight:500}
+.tree-row.folder>.node-name{font-weight:700}
+.node-size{width:76px;text-align:right;color:var(--muted);font-size:12.5px;flex:none;
+  font-variant-numeric:tabular-nums}
+.node-note{margin-left:auto;font-size:12px;color:var(--gray);flex:none;padding-right:10px}
+.node-note.warn{color:var(--brand)}
+.tree-foot{margin-top:14px;display:flex;align-items:center;gap:12px;padding:14px 20px}
+.tree-foot .sum{font-size:13.5px}
+.tree-foot .sum b{color:var(--brand);font-size:16px}
+
+/* ========== 下载管理 ========== */
+.stat-mini-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}
+.stat-mini{padding:14px 18px}
+.stat-mini .num{font-size:22px;font-weight:800}
+.stat-mini .lab{font-size:12px;color:var(--muted);margin-top:2px}
+.dl-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
+.dl-table th{ text-align:left;font-size:11.5px;letter-spacing:.8px;color:var(--muted);
+  padding:10px 14px;border-bottom:1px solid var(--line);font-weight:600}
+.dl-table td{padding:11px 14px;border-bottom:1px solid rgba(170,169,161,.2);vertical-align:middle}
+.dl-table tr:last-child td{border-bottom:none}
+.dl-table tr:hover td{background:var(--brand-04)}
+.pbar{width:100%;height:8px;background:var(--gray-16);border-radius:99px;overflow:hidden}
+.pbar>div{height:100%;width:0%;background:var(--amber);border-radius:99px;transition:width .12s linear}
+.pbar.done>div{background:#9BA79B}
+
+/* ========== 作业 ========== */
+.hw-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13.5px}
+.hw-table th{text-align:left;font-size:11.5px;letter-spacing:.8px;color:var(--muted);
+  padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600}
+.hw-table td{padding:14px 16px;border-bottom:1px solid rgba(170,169,161,.2)}
+.hw-table tr:last-child td{border-bottom:none}
+.hw-table tbody tr{cursor:pointer;transition:background .12s}
+.hw-table tbody tr:hover{background:var(--brand-04)}
+.hw-table tbody tr.selected{background:var(--amber-18)}
+
+#toast-box{position:fixed;top:22px;right:24px;display:flex;flex-direction:column;gap:9px;z-index:99}
+.toast{background:#2B060F;color:#F7EDEA;font-size:13px;border-radius:10px;padding:11px 18px;
+  box-shadow:0 10px 30px rgba(29,1,6,.35);display:flex;align-items:center;gap:9px;
+  animation:slide .2s ease;border-left:3px solid var(--amber)}
+@keyframes slide{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+.empty-tip{padding:44px 0;text-align:center;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs><symbol id="ft-pdf" viewBox="0 0 1024 1024"><path d="M704.77913 82.365217H288.50087c-31.610435 0-57.433043 25.822609-57.433044 57.433044v744.403478c0 31.610435 25.822609 57.433043 57.433044 57.433044h545.391304c31.610435 0 57.433043-25.822609 57.433043-57.433044V268.911304l-186.546087-186.546087z" fill="#F7E4E4" p-id="6303"></path><path d="M704.77913 211.478261c0 31.610435 25.822609 57.433043 57.433044 57.433043h129.113043l-186.546087-186.546087v129.113044z" fill="#F75757" p-id="6304"></path><path d="M501.76 833.892174H164.285217c-17.363478 0-31.610435-13.356522-31.610434-29.829565V658.921739c0-16.473043 14.246957-29.829565 31.610434-29.829565h337.029566c17.363478 0 31.610435 13.356522 31.610434 29.829565v144.695652c0.445217 16.918261-13.801739 30.274783-31.165217 30.274783z" fill="#F24949" p-id="6305"></path><path d="M222.608696 767.554783v30.274782h-28.048696v-30.274782H222.608696zM270.246957 676.730435l-0.445218 10.685217c3.116522-4.452174 7.123478-7.568696 10.685218-9.794782 4.006957-2.226087 8.45913-3.116522 12.911304-3.116522 5.787826 0 10.685217 1.335652 14.692174 4.452174s6.678261 6.678261 8.013913 10.685217 1.335652 10.685217 1.335652 20.48V761.321739c0 11.130435-0.445217 18.69913-1.78087 23.596522s-4.006957 8.45913-8.013913 11.130435-8.904348 4.006957-14.692174 4.006956c-4.452174 0-8.904348-0.890435-12.911304-3.116522s-7.568696-5.342609-10.685217-9.349565v27.603478h-36.953044V676.730435h37.843479z m10.24 35.172174c0-7.568696-0.445217-12.02087-0.890435-13.801739s-2.226087-2.226087-4.452174-2.226087-4.006957 0.890435-4.897391 2.671304-0.890435 6.233043-0.890435 13.356522v50.309565c0 7.123478 0.445217 12.02087 0.890435 13.801739s2.226087 2.671304 4.897391 2.671304c2.226087 0 4.006957-0.890435 4.452174-2.671304s0.890435-5.787826 0.890435-12.02087v-52.090434zM413.606957 650.017391v147.812174h-36.953044v-8.904348c-3.561739 3.561739-7.123478 6.233043-11.130435 8.013913s-8.013913 2.671304-12.020869 2.671305c-5.787826 0-10.685217-1.335652-14.692174-4.452174s-6.678261-6.678261-8.013913-10.24-1.78087-10.24-1.78087-19.144348v-56.542609c0-9.349565 0.445217-16.027826 1.78087-20.034782s4.006957-7.123478 8.013913-10.24 9.349565-4.452174 15.137391-4.452174c4.452174 0 8.904348 0.890435 12.466087 2.671304s7.123478 4.006957 10.24 7.568696V650.017391h36.953044z m-36.953044 56.987826c0-4.452174-0.445217-7.568696-1.335652-8.904347s-2.226087-2.226087-4.452174-2.226087-3.561739 0.890435-4.452174 2.226087-1.335652 4.452174-1.335652 9.349565v59.213913c0 4.897391 0.445217 8.013913 0.890435 9.794782s2.226087 2.226087 4.006956 2.226087c2.226087 0 4.006957-0.890435 4.897391-2.671304s1.335652-5.787826 1.335653-12.911304v-56.097392zM473.711304 650.017391v18.699131c-7.568696 0-12.02087 0.445217-13.356521 0.890435s-2.226087 2.671304-2.226087 5.787826v4.006956h15.582608v19.144348h-8.904347v99.283478h-36.953044v-99.283478h-7.568696v-19.144348h7.568696c0-8.013913 0.445217-13.356522 0.890435-16.027826s1.78087-4.897391 4.006956-7.123478 5.342609-3.561739 8.904348-4.897392 9.794783-1.78087 18.253913-1.780869h13.801739z" fill="#FFFFFF" p-id="6306"></path><path d="M587.241739 435.867826c-21.370435-1.78087-41.850435-9.349565-58.768696-23.596522-32.50087 7.123478-63.666087 17.363478-94.386086 30.274783-24.486957 43.631304-47.638261 65.892174-67.227827 65.892174-4.006957 0-8.904348-0.890435-12.020869-3.116522-8.904348-4.006957-13.356522-12.911304-13.356522-21.370435 0-7.123478 1.78087-27.158261 77.022609-59.65913 17.363478-31.610435 31.165217-64.111304 41.850435-98.393044-9.349565-19.144348-30.274783-65.892174-16.027826-89.488695 4.897391-8.904348 14.246957-13.356522 24.486956-12.911305 8.013913 0 16.027826 4.006957 20.48 10.24 10.24 14.246957 9.349565 44.521739-4.006956 89.043479 12.911304 23.596522 29.384348 45.412174 48.973913 63.666087 16.473043-3.116522 33.391304-5.342609 49.864347-5.342609 37.398261 0.890435 42.74087 18.253913 41.850435 28.493913 0.890435 26.267826-25.377391 26.267826-38.733913 26.267826zM365.078261 485.286957l2.226087-0.890435c11.130435-4.006957 20.034783-12.02087 26.267826-22.26087-12.02087 4.897391-21.370435 12.466087-28.493913 23.151305z m105.516522-238.191305h-2.226087c-0.890435 0-2.226087 0-3.116522 0.890435-3.116522 13.356522-0.890435 27.603478 4.897391 40.514783 4.452174-13.801739 4.452174-28.048696 0.445218-41.405218z m5.342608 114.866087l-0.890434 1.78087-0.890435-0.890435c-7.123478 18.253913-15.137391 36.507826-23.596522 53.871304l1.78087-0.890435v1.78087c17.363478-6.233043 36.507826-12.02087 53.871304-16.027826l-0.890435-0.890435h2.226087c-11.575652-11.575652-22.706087-24.932174-31.610435-38.733913z m108.187826 42.295652c-7.123478 0-13.356522 0-20.48 1.78087 8.013913 4.006957 16.027826 5.342609 23.596522 6.233043 5.342609 0.890435 11.130435 0 16.027826-1.780869 0-2.226087-3.116522-6.233043-19.144348-6.233044z m0 0" fill="#F75757" p-id="6307"></path></symbol><symbol id="ft-doc" viewBox="0 0 1024 1024"><path d="M704.77913 82.365217H288.50087c-31.610435 0-57.433043 25.822609-57.433044 57.433044v744.403478c0 31.610435 25.822609 57.433043 57.433044 57.433044h545.391304c31.610435 0 57.433043-25.822609 57.433043-57.433044V268.911304l-186.546087-186.546087z" fill="#E5F3F9" p-id="1537"></path><path d="M704.77913 211.478261c0 31.610435 25.822609 57.433043 57.433044 57.433043h129.113043l-186.546087-186.546087v129.113044zM341.481739 216.375652h272.473044v38.288696H341.481739zM341.481739 300.966957h272.473044v38.288695H341.481739zM341.481739 385.558261h363.742609v38.288696H341.481739zM341.481739 469.704348h444.772174v38.288695H341.481739z" fill="#88D6F2" p-id="1538"></path><path d="M501.76 833.892174H164.285217c-17.363478 0-31.610435-13.356522-31.610434-29.829565V658.921739c0-16.473043 14.246957-29.829565 31.610434-29.829565h337.029566c17.363478 0 31.610435 13.356522 31.610434 29.829565v144.695652c0.445217 16.918261-13.801739 30.274783-31.165217 30.274783z" fill="#52BCF7" p-id="1539"></path><path d="M204.354783 767.554783v30.274782h-28.048696v-30.274782h28.048696zM297.850435 650.017391v147.812174h-36.953044v-8.904348c-3.561739 3.561739-7.123478 6.233043-11.130434 8.013913-4.006957 1.78087-8.013913 2.671304-12.02087 2.671305-5.787826 0-10.685217-1.335652-14.692174-4.452174s-6.678261-6.678261-8.013913-10.24-1.78087-10.24-1.78087-19.144348v-56.542609c0-9.349565 0.445217-16.027826 1.78087-20.034782s4.006957-7.123478 8.013913-10.24 9.349565-4.452174 15.137391-4.452174c4.452174 0 8.904348 0.890435 12.466087 2.671304s7.123478 4.006957 10.24 7.568696V650.017391h36.953044z m-36.507826 56.987826c0-4.452174-0.445217-7.568696-1.335652-8.904347s-2.226087-2.226087-4.452174-2.226087-3.561739 0.890435-4.452174 2.226087-1.335652 4.452174-1.335652 9.349565v59.213913c0 4.897391 0.445217 8.013913 0.890434 9.794782s2.226087 2.226087 4.006957 2.226087c2.226087 0 4.006957-0.890435 4.897391-2.671304s1.335652-5.787826 1.335652-12.911304v-56.097392zM394.907826 719.026087v29.829565c0 10.685217-0.445217 18.69913-1.780869 24.041739s-3.561739 9.794783-7.123479 14.246957-8.013913 7.568696-13.801739 9.794782-12.02087 3.116522-19.589565 3.116522c-8.013913 0-15.137391-0.890435-20.925217-2.671304s-10.24-4.452174-13.356522-8.013913-5.342609-8.013913-6.678261-13.356522-2.226087-12.911304-2.226087-23.151304v-31.165218c0-11.130435 1.335652-20.034783 3.561739-26.267826s6.678261-11.575652 13.356522-15.137391 14.246957-5.787826 24.486956-5.787826c8.45913 0 15.582609 1.335652 21.370435 3.561739s10.685217 5.787826 13.801739 9.794783 5.342609 8.013913 6.678261 12.020869 2.226087 10.685217 2.226087 19.144348z m-36.953043-8.904348c0-6.233043-0.445217-10.24-0.890435-11.575652s-2.226087-2.226087-4.452174-2.226087-3.561739 0.890435-4.452174 2.226087-0.890435 5.342609-0.890435 11.575652v54.761739c0 5.787826 0.445217 9.349565 0.890435 11.130435s2.226087 2.671304 4.452174 2.671304 3.561739-0.890435 4.452174-2.226087 0.890435-4.897391 0.890435-10.24v-56.097391zM488.403478 722.142609h-34.726956v-13.801739c0-4.897391-0.445217-8.013913-1.335652-9.794783s-2.226087-2.671304-4.452174-2.671304-3.561739 0.890435-4.452174 2.226087-0.890435 4.897391-0.890435 10.24v56.987826c0 4.452174 0.445217 7.568696 1.78087 9.794782s2.671304 3.116522 4.897391 3.116522c2.671304 0 4.006957-1.335652 4.897391-3.561739s1.335652-6.678261 1.335652-12.911304V747.965217h32.946087c0 9.794783-0.445217 16.918261-0.890435 21.815653s-2.671304 9.794783-6.233043 14.692173-8.013913 8.904348-13.356522 11.575653-12.466087 4.006957-20.48 4.006956c-10.24 0-18.69913-1.78087-24.932174-5.342609s-10.24-8.45913-12.911304-15.137391-4.006957-15.582609-4.006957-27.158261v-34.281739c0-10.24 0.890435-18.253913 3.116522-23.151304s6.678261-9.794783 13.356522-13.801739 15.137391-6.233043 24.486956-6.233044c9.794783 0 17.808696 2.226087 24.486957 6.233044s11.130435 9.349565 13.801739 15.582608 3.561739 14.246957 3.561739 25.377392z" fill="#FFFFFF" p-id="1540"></path></symbol><symbol id="ft-ppt" viewBox="0 0 1024 1024"><path d="M704.77913 82.365217H288.50087c-31.610435 0-57.433043 25.822609-57.433044 57.433044v744.403478c0 31.610435 25.822609 57.433043 57.433044 57.433044h545.391304c31.610435 0 57.433043-25.822609 57.433043-57.433044V268.911304l-186.546087-186.546087z" fill="#FCEFE3" p-id="6142"></path><path d="M704.77913 211.478261c0 31.610435 25.822609 57.433043 57.433044 57.433043h129.113043l-186.546087-186.546087v129.113044z" fill="#F9B582" p-id="6143"></path><path d="M501.76 833.892174H164.285217c-17.363478 0-31.610435-13.356522-31.610434-29.829565V658.921739c0-16.473043 14.246957-29.829565 31.610434-29.829565h337.029566c17.363478 0 31.610435 13.356522 31.610434 29.829565v144.695652c0.445217 16.918261-13.801739 30.274783-31.165217 30.274783z" fill="#F49D47" p-id="6144"></path><path d="M221.273043 767.554783v30.274782h-28.048695v-30.274782h28.048695zM268.911304 676.730435l-0.445217 10.685217c3.116522-4.452174 7.123478-7.568696 10.685217-9.794782 4.006957-2.226087 8.45913-3.116522 12.911305-3.116522 5.787826 0 10.685217 1.335652 14.692174 4.452174s6.678261 6.678261 8.013913 10.685217 1.335652 10.685217 1.335652 20.48V761.321739c0 11.130435-0.445217 18.69913-1.78087 23.596522s-4.006957 8.45913-8.013913 11.130435-8.904348 4.006957-14.692174 4.006956c-4.452174 0-8.904348-0.890435-12.911304-3.116522s-7.568696-5.342609-10.685217-9.349565v27.603478h-36.953044V676.730435h37.843478z m10.24 35.172174c0-7.568696-0.445217-12.02087-0.890434-13.801739s-2.226087-2.226087-4.452174-2.226087-4.006957 0.890435-4.897392 2.671304-0.890435 6.233043-0.890434 13.356522v50.309565c0 7.123478 0.445217 12.02087 0.890434 13.801739s2.226087 2.671304 4.897392 2.671304c2.226087 0 4.006957-0.890435 4.452174-2.671304s0.890435-5.787826 0.890434-12.02087v-52.090434zM365.968696 676.730435l-0.445218 10.685217c3.116522-4.452174 7.123478-7.568696 10.685218-9.794782 4.006957-2.226087 8.45913-3.116522 12.911304-3.116522 5.787826 0 10.685217 1.335652 14.692174 4.452174s6.678261 6.678261 8.013913 10.685217 1.335652 10.685217 1.335652 20.48V761.321739c0 11.130435-0.445217 18.69913-1.780869 23.596522s-4.006957 8.45913-8.013913 11.130435-8.904348 4.006957-14.692174 4.006956c-4.452174 0-8.904348-0.890435-12.911305-3.116522s-7.568696-5.342609-10.685217-9.349565v27.603478h-36.953044V676.730435h37.843479z m10.24 35.172174c0-7.568696-0.445217-12.02087-0.890435-13.801739s-2.226087-2.226087-4.452174-2.226087-4.006957 0.890435-4.897391 2.671304-0.890435 6.233043-0.890435 13.356522v50.309565c0 7.123478 0.445217 12.02087 0.890435 13.801739s2.226087 2.671304 4.897391 2.671304c2.226087 0 4.006957-0.890435 4.452174-2.671304s0.890435-5.787826 0.890435-12.02087v-52.090434zM464.361739 660.257391v19.144348h9.794783v19.144348h-9.794783v65.001739c0 8.013913 0.445217 12.466087 1.335652 13.356522s4.452174 1.335652 10.24 1.335652v19.589565h-14.692174c-8.45913 0-14.246957-0.445217-17.808695-0.890435s-6.678261-2.226087-9.349565-4.897391-4.452174-5.342609-4.897392-8.45913-0.890435-11.130435-0.890435-23.151305V698.991304h-8.013913v-19.144347H427.408696v-19.144348h36.953043z" fill="#FFFFFF" p-id="6145"></path><path d="M479.053913 260.006957c-67.227826 0-121.989565 54.761739-121.989565 121.989565 0 67.227826 54.761739 121.989565 121.989565 121.989565 67.227826 0 121.989565-54.761739 121.989565-121.989565H479.053913V260.006957z m0 0" fill="#F9B582" p-id="6146"></path><path d="M519.123478 219.046957v121.989565H641.113043c0-67.227826-54.761739-121.989565-121.989565-121.989565z m0 0" fill="#F9B582" p-id="6147"></path></symbol><symbol id="ft-vid" viewBox="0 0 1024 1024"><path d="M704.77913 82.365217H288.50087c-31.610435 0-57.433043 25.822609-57.433044 57.433044v744.403478c0 31.610435 25.822609 57.433043 57.433044 57.433044h545.391304c31.610435 0 57.433043-25.822609 57.433043-57.433044V268.911304l-186.546087-186.546087z" fill="#F7E2E2" p-id="6933"></path><path d="M704.77913 211.478261c0 31.610435 25.822609 57.433043 57.433044 57.433043h129.113043l-186.546087-186.546087v129.113044z" fill="#F49292" p-id="6934"></path><path d="M501.76 833.892174H164.285217c-17.363478 0-31.610435-13.356522-31.610434-29.829565V658.921739c0-16.473043 14.246957-29.829565 31.610434-29.829565h337.029566c17.363478 0 31.610435 13.356522 31.610434 29.829565v144.695652c0.445217 16.918261-13.801739 30.274783-31.165217 30.274783z" fill="#F47F7F" p-id="6935"></path><path d="M233.293913 767.554783v30.274782h-28.048696v-30.274782h28.048696zM276.034783 723.478261h-34.726957v-8.013913c0-9.349565 0.890435-16.473043 3.116522-21.815652s6.678261-9.349565 12.911304-13.356522 15.137391-5.787826 25.377391-5.787826c12.466087 0 21.815652 2.226087 28.048696 6.678261s10.24 9.794783 11.575652 16.473043 1.78087 19.589565 1.78087 39.624348v60.994783h-36.062609v-10.685218c-2.226087 4.452174-5.342609 7.568696-8.904348 9.794783-3.561739 2.226087-8.013913 3.116522-12.911304 3.116522-6.233043 0-12.466087-1.78087-17.808696-5.342609S240.417391 783.582609 240.417391 771.561739v-9.794782c0-8.904348 1.335652-15.137391 4.452174-18.699131s9.794783-7.123478 21.370435-11.575652c12.02087-4.897391 18.69913-8.013913 19.589565-9.794783s1.335652-4.897391 1.335652-10.24c0-6.233043-0.445217-10.24-1.335652-12.466087s-2.671304-2.671304-4.897391-2.671304c-2.671304 0-4.006957 0.890435-4.452174 2.226087s-0.890435 5.787826-0.890435 12.466087v12.466087z m11.575652 16.473043c-5.787826 4.452174-9.349565 8.013913-10.24 10.685218s-1.335652 7.123478-1.335652 12.466087c0 6.233043 0.445217 10.24 1.335652 12.020869s2.226087 2.671304 4.897391 2.671305c2.226087 0 4.006957-0.890435 4.452174-2.226087s0.890435-5.342609 0.890435-11.130435v-24.486957zM413.606957 676.730435L396.243478 797.829565H348.16L329.906087 676.730435h32.946087l10.24 88.598261c0.890435-6.678261 2.226087-22.26087 4.006956-47.638261 0.890435-14.246957 2.226087-27.603478 3.56174-40.96h32.946087zM457.238261 650.017391v19.144348h-37.843478V650.017391h37.843478z m0 26.713044v121.09913h-37.843478V676.730435h37.843478z" fill="#FFFFFF" p-id="6936"></path><path d="M370.42087 222.163478h258.226087v280.486957h-258.226087z" fill="#F49292" p-id="6937"></path><path d="M428.29913 333.467826h142.469566v57.878261h-142.469566zM428.29913 418.05913h142.469566v57.878261h-142.469566zM428.29913 248.876522h142.469566v57.878261h-142.469566z" fill="#F7E2E2" p-id="6938"></path></symbol><symbol id="ft-aud" viewBox="0 0 1024 1024"><path d="M704.77913 82.365217H288.50087c-31.610435 0-57.433043 25.822609-57.433044 57.433044v744.403478c0 31.610435 25.822609 57.433043 57.433044 57.433044h545.391304c31.610435 0 57.433043-25.822609 57.433043-57.433044V268.911304l-186.546087-186.546087z" fill="#ECE2F7" p-id="1694"></path><path d="M704.77913 211.478261c0 31.610435 25.822609 57.433043 57.433044 57.433043h129.113043l-186.546087-186.546087v129.113044z" fill="#AAA4ED" p-id="1695"></path><path d="M501.76 833.892174H164.285217c-17.363478 0-31.610435-13.356522-31.610434-29.829565V658.921739c0-16.473043 14.246957-29.829565 31.610434-29.829565h337.029566c17.363478 0 31.610435 13.356522 31.610434 29.829565v144.695652c0.445217 16.918261-13.801739 30.274783-31.165217 30.274783z" fill="#876DF2" p-id="1696"></path><path d="M176.751304 767.554783v30.274782h-28.048695v-30.274782h28.048695zM223.053913 676.730435l-0.445217 11.575652c2.671304-4.452174 6.233043-8.013913 10.24-10.24s8.45913-3.561739 13.356521-3.561739c9.794783 0 17.808696 4.452174 23.151305 13.801739 3.116522-4.452174 6.678261-8.013913 10.685217-10.24s8.013913-3.561739 12.911304-3.561739c6.233043 0 11.575652 1.335652 15.582609 4.452174s6.678261 6.678261 8.013913 11.130435 1.78087 11.575652 1.78087 21.370434v85.926957h-35.617392v-78.803478c0-10.24-0.445217-16.918261-0.890434-19.144348s-2.226087-3.561739-4.897392-3.561739c-2.671304 0-4.452174 1.335652-4.897391 3.561739s-1.335652 8.904348-1.335652 19.144348v78.803478h-35.617391v-77.022609c0-12.02087-0.445217-19.144348-0.890435-21.370435s-2.226087-3.561739-4.897391-3.561739c-1.78087 0-3.116522 0.445217-4.006957 1.78087s-1.78087 2.671304-1.78087 4.452174v95.721739h-35.617391V676.730435h35.172174zM368.194783 676.730435l-0.445218 10.685217c3.116522-4.452174 7.123478-7.568696 10.685218-9.794782 4.006957-2.226087 8.45913-3.116522 12.911304-3.116522 5.787826 0 10.685217 1.335652 14.692174 4.452174s6.678261 6.678261 8.013913 10.685217 1.335652 10.685217 1.335652 20.48V761.321739c0 11.130435-0.445217 18.69913-1.780869 23.596522s-4.006957 8.45913-8.013914 11.130435-8.904348 4.006957-14.692173 4.006956c-4.452174 0-8.904348-0.890435-12.911305-3.116522-4.006957-2.226087-7.568696-5.342609-10.685217-9.349565v27.603478h-36.953044V676.730435h37.843479z m10.685217 35.172174c0-7.568696-0.445217-12.02087-0.890435-13.801739s-2.226087-2.226087-4.452174-2.226087-4.006957 0.890435-4.897391 2.671304-0.890435 6.233043-0.890435 13.356522v50.309565c0 7.123478 0.445217 12.02087 0.890435 13.801739s2.226087 2.671304 4.897391 2.671304c2.226087 0 4.006957-0.890435 4.452174-2.671304s0.890435-5.787826 0.890435-12.02087v-52.090434zM497.307826 714.128696c5.787826 1.78087 9.794783 4.897391 12.466087 9.349565 2.671304 4.452174 4.006957 14.246957 4.006957 30.274782 0 11.575652-1.335652 20.925217-4.006957 27.158261-2.671304 6.678261-7.123478 11.575652-13.801739 14.692174-6.678261 3.561739-15.137391 4.897391-25.377391 4.897392-11.575652 0-20.925217-1.78087-27.603479-5.787827s-11.130435-8.904348-13.356521-14.246956-3.116522-15.582609-3.116522-29.829565V739.06087h36.953043v24.041739c0 6.233043 0.445217 10.24 1.335653 12.020869s2.226087 2.671304 4.897391 2.671305c2.671304 0 4.897391-0.890435 5.787826-3.116522s1.335652-8.013913 1.335652-17.363478v-10.24c0-5.787826-0.445217-9.794783-1.780869-12.466087s-3.116522-4.452174-5.787827-5.342609-7.123478-1.335652-14.692173-1.335652v-21.370435c8.904348 0 14.246957-0.445217 16.473043-0.890435s3.561739-2.226087 4.452174-4.452174 1.335652-5.787826 1.335652-10.685217v-8.013913c0-5.342609-0.445217-8.45913-1.780869-10.24s-2.671304-2.671304-4.897392-2.671304c-2.671304 0-4.452174 0.890435-5.342608 2.671304s-1.335652 5.342609-1.335653 11.130435v12.020869h-36.953043v-12.466087c0-14.246957 3.116522-23.596522 9.794782-28.493913s16.918261-7.568696 30.72-7.568695c17.808696 0 29.384348 3.561739 35.617392 10.24s9.349565 16.473043 9.349565 28.493913c0 8.45913-1.335652 14.246957-3.561739 17.808695s-5.787826 7.568696-11.130435 10.685218z" fill="#FFFFFF" p-id="1697"></path><path d="M441.655652 407.81913m-100.173913 0a100.173913 100.173913 0 1 0 200.347826 0 100.173913 100.173913 0 1 0-200.347826 0Z" fill="#AAA4ED" p-id="1698"></path></symbol></defs></svg>
+<div id="app">
+  <aside id="sidebar">
+    <div class="brand"><span class="brand-dot"></span><span class="brand-name">东方理工 LMS 助手</span></div>
+    <div class="brand-sub">超星“资料”批量下载 · UI Demo</div>
+    <nav id="nav">
+      <button class="nav-item" data-page="materials">📚  资料下载</button>
+      <button class="nav-item" data-page="downloads">⬇️  下载管理<span class="nav-badge" id="dl-badge" style="display:none">0</span></button>
+      <button class="nav-item" data-page="homework">📝  作业列表<span class="nav-badge" id="hw-badge">0</span></button>
+    </nav>
+    <div id="side-foot">
+      <div class="demo-badge">演示模式 · 数据为模拟<br>不发起任何网络请求</div>
+      <div class="user-chip" id="user-chip" title="重新登录"><span class="avatar" id="avatar">?</span><span id="user-name">未登录</span></div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <!-- 登录引导：仅未登录/重新登录时作为主界面出现 -->
+    <section class="page" id="page-login">
+      <div class="login-wrap">
+        <div class="card login-card">
+          <div class="page-title">登录超星学习通（校园版）</div>
+          <div class="page-hint" style="margin-top:8px;line-height:1.9">
+            将打开真实 Edge 浏览器跳转学校统一身份认证（CAS），请在浏览器中手动完成登录。<br>
+            登录成功后助手会缓存会话 Cookie，下次运行免登录（失效自动重新引导）。<br>
+            <b>※ Demo 模式：不真正打开浏览器，仅模拟各步骤。</b>
+          </div>
+          <div class="login-steps" id="login-steps"></div>
+          <div class="banner" id="login-banner"></div>
+          <div class="login-actions">
+            <button class="btn btn-primary" id="login-btn" onclick="startLogin()">启动浏览器登录</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 资料下载 -->
+    <section class="page" id="page-materials">
+      <div class="page-title">资料下载</div>
+      <div class="page-hint">勾选需要下载的文件；教师课件与未开放下载项不可勾选（平台权限，助手不会强行获取）</div>
+      <div class="toolbar" style="margin-top:16px">
+        <select class="sel" id="course-sel" onchange="renderMaterials()"></select>
+        <button class="btn btn-ghost" id="sel-all" onclick="selectAll()">全选</button>
+        <button class="btn btn-ghost" onclick="openCourseInBrowser()" title="在系统浏览器中打开当前课程的资料页">🌐 浏览器打开</button>
+        <div class="divider"></div>
+        <div class="dir-box">
+          <span class="dir-label">下载到</span>
+          <span class="dir-path" id="dir-path">—</span>
+          <button class="btn btn-ghost btn-sm" onclick="pickDir()" title="弹出系统目录选择对话框（Demo 用浏览器原生目录选择器模拟，无法读取绝对路径）">更改</button>
+          <button class="btn btn-ghost btn-sm" onclick="resetDir()" title="恢复默认目录">↺</button>
+          <input type="file" id="dir-picker" webkitdirectory hidden>
+        </div>
+      </div>
+      <div class="card tree-card"><div class="tree" id="mat-tree"></div></div>
+      <div class="card tree-foot">
+        <span class="sum" id="mat-sum">已选 <b>0</b> 个文件</span>
+        <span class="muted" style="font-size:12px" id="mat-size"></span>
+        <span style="flex:1"></span>
+        <button class="btn btn-primary" id="dl-start" onclick="startDownload()">开始下载 →</button>
+      </div>
+    </section>
+
+    <!-- 下载管理 -->
+    <section class="page" id="page-downloads">
+      <div class="page-title">下载管理</div>
+      <div class="page-hint">顺序下载、文件间随机限速；完成 / 跳过 / 禁止状态与真实下载器一致</div>
+      <div class="stat-mini-grid">
+        <div class="card stat-mini"><div class="num" id="st-total">0</div><div class="lab">任务总数</div></div>
+        <div class="card stat-mini"><div class="num" id="st-done" style="color:#6E6A62">0</div><div class="lab">完成</div></div>
+        <div class="card stat-mini"><div class="num" id="st-skip" style="color:#6E6A62">0</div><div class="lab">跳过</div></div>
+        <div class="card stat-mini"><div class="num" id="st-other" style="color:var(--brand)">0</div><div class="lab">禁止 / 失败</div></div>
+      </div>
+      <div class="card" style="margin-top:14px;overflow:auto">
+        <table class="dl-table" id="dl-table">
+          <thead><tr><th style="width:44%">文件</th><th>大小</th><th>状态</th><th style="width:26%">进度</th></tr></thead>
+          <tbody id="dl-body"></tbody>
+        </table>
+        <div class="empty-tip" id="dl-empty">暂无任务 —— 从「资料下载」页勾选文件后点击“开始下载”</div>
+      </div>
+      <div class="toolbar" style="margin-top:14px">
+        <span class="muted" id="dl-hint">等待任务…</span>
+        <span style="flex:1"></span>
+        <button class="btn btn-danger-ghost" id="dl-cancel" style="display:none" onclick="cancelQueue()">取消全部</button>
+      </div>
+    </section>
+
+    <!-- 作业列表 -->
+    <section class="page" id="page-homework">
+      <div class="page-title">作业列表</div>
+      <div class="page-hint">按课程汇总；<b>双击任意作业直接在浏览器中打开作业页面</b>（红色=需立即行动，琥珀=等待中，灰=无需动作）</div>
+      <div class="card" style="margin-top:14px;overflow:auto">
+        <table class="hw-table">
+          <thead><tr><th>课程</th><th>作业</th><th>状态</th><th>时间</th></tr></thead>
+          <tbody id="hw-body"></tbody>
+        </table>
+      </div>
+      <div class="page-hint" style="margin-top:12px" id="hw-sum"></div>
+    </section>
+  </main>
+</div>
+
+<div id="toast-box"></div>
+
+<script>
+"use strict";
+/* ================= 模拟数据（与 PySide6 版 mock_data 一致） ================= */
+const COURSES = [
+  { id:"101", clazz:"20001", cpi:"9001", name:"计算机组成原理" },
+  { id:"102", clazz:"20002", cpi:"9001", name:"数据结构与算法" },
+  { id:"103", clazz:"20003", cpi:"9001", name:"线性代数" },
+];
+let _nid = 0;
+const F = (name, size, o = {}) => ({ id:++_nid, name, size, type:name.split(".").pop().toLowerCase(), isdown:true, ...o });
+const D = (name, children, o = {}) => ({ id:++_nid, name, size:"", type:"afolder", children, isdown:true, ...o });
+const MATERIALS = {
+  "计算机组成原理": [
+    F("课程教学大纲.pdf","1.2MB"),
+    D("第1章 计算机系统概述",[ F("1.1 课程概述.pdf","2.4MB"), F("第1章 讲义.pptx","8.7MB"), F("第1章 导学视频.mp4","118MB"), F("第1章 导学音频.mp3","12.6MB") ]),
+    D("第2章 运算方法与运算器",[ F("2.1 定点运算.pdf","3.1MB"), F("2.2 浮点运算.pdf","2.8MB"), F("第2章 讲义.pptx","9.4MB"), F("运算器实验指导书.docx","1.5MB",{skip:true}) ]),
+    D("习题与答案",[ F("第1章 课后习题.docx","366KB"), F("第1章 参考答案.pdf","528KB",{isdown:false}) ]),
+    D("教师课件",[],{special:true}),
+  ],
+  "数据结构与算法": [
+    F("课程实验安排.pdf","820KB"),
+    D("实验指导",[ F("实验一 顺序表与链表.pdf","1.1MB"), F("实验二 栈与队列.pdf","980KB") ]),
+    F("教材勘误表.pdf","210KB",{isdown:false}),
+  ],
+  "线性代数": [ F("教学日历.pdf","300KB"), F("习题册第一册.pdf","6.2MB") ],
+};
+const HOMEWORK = [
+  { course:"计算机组成原理", title:"第1章 课后习题：计算机系统概述", status:"未交", time:"剩余124小时44分钟",
+    url:"https://mock.chaoxing.com/work/1" },
+  { course:"计算机组成原理", title:"第0章 先导测验", status:"待批阅", time:"提交截止：2026-09-20 23:59",
+    url:"https://mock.chaoxing.com/work/2" },
+  { course:"数据结构与算法", title:"实验一 顺序表与链表", status:"未交", time:"剩余49小时12分钟",
+    url:"https://mock.chaoxing.com/work/3" },
+  { course:"数据结构与算法", title:"第1章 绪论书面作业", status:"待批阅", time:"已过截止时间",
+    url:"https://mock.chaoxing.com/work/4" },
+];
+
+/* ================= 状态 ================= */
+const DEFAULT_DIR = "C:\\Users\\DIYAN\\Downloads\\eitech-lms";
+let downloadDir = localStorage.getItem("eit-lms-dl-dir") || DEFAULT_DIR;
+let loggedIn = false;
+const CHECKED = new Set();          // 勾选的叶子节点 id（跨课程共享，切课不丢）
+const DISABLED = new Set();         // 不可勾选节点 id
+let queue = [], dlTimer = null;
+
+/* ================= 工具 ================= */
+const $ = s => document.querySelector(s);
+function parseSize(t){ const m = /([\d.]+)\s*(GB|MB|KB|B)/i.exec(t||""); if(!m) return 0;
+  const v = parseFloat(m[1]); return {B:1,KB:1024,MB:1024**2,GB:1024**3}[m[2].toUpperCase()]*v; }
+function fmtSize(n){ if(!n) return ""; let u=["B","KB","MB","GB"],i=0; while(n>=1024&&i<3){n/=1024;i++}
+  return (i?(n.toFixed(1)):n)+u[i]; }
+function chip(status){
+  const red=["未交","禁止下载","失败"], amber=["待批阅","下载中"];
+  const cls = red.includes(status)?"chip-red":amber.includes(status)?"chip-amber":"chip-gray";
+  return `<span class="chip ${cls}">${status}</span>`;
+}
+function toast(msg){
+  const el=document.createElement("div"); el.className="toast"; el.textContent=msg;
+  $("#toast-box").appendChild(el); setTimeout(()=>el.remove(),2600);
+}
+function materialUrl(c){ return `https://mooc2-ans.chaoxing.com/mooc2-ans/coursedata/stu-datalist?courseid=${c.id}&clazzid=${c.clazz}&cpi=${c.cpi}&ut=s`; }
+/* 文件类型 → 彩色 SVG 图标（用户提供，见 图标/ 目录）；未提供图标的类型回退扩展名徽章 */
+const FICO={pdf:"ft-pdf",doc:"ft-doc",docx:"ft-doc",ppt:"ft-ppt",pptx:"ft-ppt",
+  mp4:"ft-vid",mov:"ft-vid",avi:"ft-vid",mkv:"ft-vid",flv:"ft-vid",
+  mp3:"ft-aud",wav:"ft-aud",m4a:"ft-aud",flac:"ft-aud",aac:"ft-aud"};
+function fileIcon(type){
+  const sym=FICO[type];
+  if(sym) return `<svg class="fico" aria-hidden="true"><use href="#${sym}"/></svg>`;
+  return `<span class="fico-badge">${(type||"file").slice(0,4).toUpperCase()}</span>`;
+}
+
+/* ================= 导航 ================= */
+function showPage(name){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  $("#page-"+name).classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.toggle("active",n.dataset.page===name));
+  $("#main").scrollTop=0;
+}
+document.querySelectorAll(".nav-item").forEach(n=>n.onclick=()=>showPage(n.dataset.page));
+
+/* ================= 登录（模拟；导航不常驻，仅作主界面） ================= */
+const LOGIN_STEPS=["启动 Edge 浏览器","打开 CAS 统一身份认证页","等待手动完成登录","校验会话 Cookie（vc3）","缓存 Cookie 到 data/cookies.json"];
+function renderLoginSteps(states){
+  $("#login-steps").innerHTML = LOGIN_STEPS.map((s,i)=>{
+    const st=states[i]||"";
+    return `<div class="step ${st}"><span class="mark">${st==="done"?"✓":st==="running"?"…":i+1}</span><span>${s}</span></div>`;
+  }).join("");
+}
+let loginTimers=[];
+function startLogin(){
+  loginTimers.forEach(clearTimeout); loginTimers=[];
+  $("#login-btn").disabled=true; $("#login-btn").textContent="正在登录…（演示）";
+  $("#login-banner").className="banner";
+  const states=Array(5).fill(""); renderLoginSteps(states);
+  const durs=[1000,1200,2500,800,900]; let t=0;
+  durs.forEach((d,i)=>{
+    loginTimers.push(setTimeout(()=>{ states[i]="running"; renderLoginSteps(states); },t));
+    t+=d;
+    loginTimers.push(setTimeout(()=>{ states[i]="done"; renderLoginSteps(states); },t));
+  });
+  loginTimers.push(setTimeout(()=>{
+    loggedIn=true;
+    $("#login-btn").disabled=false; $("#login-btn").textContent="重新演示登录";
+    const b=$("#login-banner"); b.className="banner ok";
+    b.textContent="登录成功：张三（2025xxxx）。会话 Cookie 已缓存（演示数据）。";
+    $("#user-name").textContent="张三（2025xxxx）"; $("#avatar").textContent="张";
+    $("#user-chip").title="点击重新登录";
+    toast("登录成功，Cookie 已缓存");
+    setTimeout(()=>showPage("materials"),900);   // 登录完成自动进入主功能
+  },t));
+}
+renderLoginSteps([]);
+
+/* ================= 资料下载 ================= */
+function courseOf(){ return COURSES[$("#course-sel").selectedIndex]; }
+function initCourses(){
+  $("#course-sel").innerHTML = COURSES.map(c=>`<option>${c.name}</option>`).join("");
+}
+function eachNode(list,fn,pw=""){
+  for(const nd of list){
+    const path=pw?pw+"/"+nd.name:nd.name;
+    fn(nd,path);
+    if(nd.children) eachNode(nd.children,fn,path);
+  }
+}
+function isDisabled(nd){ return nd.special || nd.isdown===false; }
+function buildState(){
+  for(const c of COURSES)
+    eachNode(MATERIALS[c.name],(nd)=>{
+      if(isDisabled(nd)) DISABLED.add(nd.id);
+      else if(!nd.children) CHECKED.add(nd.id);   // 默认全选
+    });
+}
+function updateDirUI(){
+  $("#dir-path").textContent=downloadDir; $("#dir-path").title=downloadDir;
+}
+function renderMaterials(){
+  const course=courseOf(), roots=MATERIALS[course.name];
+  $("#mat-tree").innerHTML = roots.map(nd=>renderNode(nd)).join("");
+  bindTree(); updateSummary();
+}
+function renderNode(nd){
+  const hasKids=nd.children&&nd.children.length>0;
+  const dis=isDisabled(nd);
+  const note = nd.special ? "教师课件 · 仅展示（不下载）" : nd.isdown===false ? "教师未开放下载"
+    : nd.skip ? "模拟：本地已存在" : hasKids ? "" : nd.type.toUpperCase();
+  const ico = nd.special?"🔒" : nd.type==="afolder"?"📁" : fileIcon(nd.type);
+  const state = dis?"" : nodeState(nd);
+  const cb = dis ? `<span class="cbx disabled"></span>`
+    : `<span class="cbx ${state==="on"?"on":state==="half"?"half":""}" data-id="${nd.id}"></span>`;
+  const caret = nd.children ? `<span class="caret ${nd._open===false?"":"open"}" data-id="${nd.id}">▶</span>`
+    : `<span class="caret leaf-lock">▶</span>`;
+  let html = `<div class="tree-row ${nd.type==="afolder"?"folder":""}" data-id="${nd.id}">
+    ${caret}${cb}<span class="node-ico">${ico}</span>
+    <span class="node-name">${nd.name}</span>
+    <span class="node-size">${nd.size||""}</span>
+    <span class="node-note ${dis||nd.skip?"warn":""}">${note}</span></div>`;
+  if(nd.children) html += `<ul ${nd._open===false?'style="display:none"':""} data-ul="${nd.id}">`
+    + nd.children.map(ch=>renderNode(ch)).join("") + `</ul>`;
+  return html;
+}
+function findNode(id){ let hit=null;
+  for(const c of COURSES) eachNode(MATERIALS[c.name],(nd)=>{ if(nd.id===id) hit=nd; });
+  return hit;
+}
+function nodeState(nd){
+  if(!nd.children) return CHECKED.has(nd.id)?"on":"off";
+  const st=nd.children.map(nodeState);
+  if(st.every(s=>s==="on")) return "on";
+  if(st.every(s=>s==="off")) return "off";
+  return "half";
+}
+function bindTree(){
+  document.querySelectorAll("#mat-tree .caret[data-id]").forEach(el=>{
+    el.onclick=()=>{
+      const ul=document.querySelector(`ul[data-ul="${el.dataset.id}"]`);
+      const nd=findNode(+el.dataset.id); nd._open = ul.style.display==="none";
+      ul.style.display = nd._open?"":"none"; el.classList.toggle("open",nd._open);
+    };
+  });
+  document.querySelectorAll("#mat-tree .cbx[data-id]").forEach(el=>{
+    el.onclick=()=>{
+      const nd=findNode(+el.dataset.id);
+      const turnOn=nodeState(nd)!=="on";
+      setNode(nd,turnOn); renderMaterials();
+    };
+  });
+}
+function setNode(nd,on){
+  if(nd.children){ nd.children.forEach(ch=>setNode(ch,on)); return; }
+  if(DISABLED.has(nd.id)) return;
+  on?CHECKED.add(nd.id):CHECKED.delete(nd.id);
+}
+function checkedFiles(){
+  const out=[]; const course=courseOf();
+  eachNode(MATERIALS[course.name],(nd)=>{ if(!nd.children&&CHECKED.has(nd.id)) out.push(nd); });
+  return out;
+}
+function updateSummary(){
+  const files=checkedFiles();
+  const total=files.reduce((s,f)=>s+parseSize(f.size),0);
+  $("#mat-sum").innerHTML=`已选 <b>${files.length}</b> 个文件`;
+  $("#mat-size").textContent=files.length?`约 ${fmtSize(total)}（大小为平台展示约数）`:"";
+  $("#dl-start").disabled=!files.length;
+  $("#sel-all").textContent = allSelected() ? "取消全选" : "全选";
+}
+/* ---- 全选 / 取消全选（仅当前课程，禁用项除外） ---- */
+function allSelected(){
+  let any=false, all=true;
+  eachNode(MATERIALS[courseOf().name], nd=>{
+    if(!nd.children && !isDisabled(nd)){ any=true; if(!CHECKED.has(nd.id)) all=false; }
+  });
+  return any && all;
+}
+function selectAll(){
+  const on = !allSelected();
+  eachNode(MATERIALS[courseOf().name], nd=>{
+    if(!nd.children && !isDisabled(nd)) setNode(nd,on);
+  });
+  renderMaterials();
+  toast(on ? "已全选当前课程可下载文件" : "已取消全选");
+}
+
+/* ---- 浏览器打开（需求 1：直接跳转，不弹窗） ---- */
+function openCourseInBrowser(){
+  const url=materialUrl(courseOf());
+  window.open(url,"_blank","noopener");
+  toast(`已在系统浏览器打开「${courseOf().name}」资料页`);
+}
+
+/* ---- 自定义下载目录（需求 5：系统目录选择对话框） ---- */
+function pickDir(){ $("#dir-picker").click(); }
+$("#dir-picker").addEventListener("change",e=>{
+  const f=e.target.files[0];
+  if(!f) return;
+  const rel=f.webkitRelativePath||f.name;
+  const folder=decodeURIComponent(rel.split("/")[0]);
+  /* 浏览器安全限制拿不到绝对路径：Demo 以默认父目录拼接演示；
+     真实桌面版由系统目录对话框直接返回所选绝对路径 */
+  downloadDir="C:\\Users\\DIYAN\\Downloads\\"+folder;
+  localStorage.setItem("eit-lms-dl-dir",downloadDir);
+  updateDirUI(); toast("下载目录已更新："+folder);
+  e.target.value="";
+});
+function resetDir(){
+  downloadDir=DEFAULT_DIR; localStorage.setItem("eit-lms-dl-dir",downloadDir);
+  updateDirUI(); toast("已恢复默认下载目录");
+}
+
+/* ================= 下载管理（模拟队列） ================= */
+const DL_TEXT={queued:["排队中","chip-gray"],running:["下载中","chip-amber"],done:["完成","chip-gray"],
+  skip_exist:["跳过（已存在）","chip-gray"],cancelled:["已取消","chip-gray"],failed:["失败","chip-red"]};
+function startDownload(){
+  const course=courseOf(), files=checkedFiles();
+  if(!files.length) return;
+  cancelQueue(true);
+  queue=files.map(nd=>({node:nd,pct:0,status:"queued"}));
+  $("#dl-empty").style.display="none";
+  $("#dl-cancel").style.display="inline-flex";
+  $("#dl-hint").textContent="正在下载…（模拟）";
+  showPage("downloads");
+  renderQueue(); tickNext();
+  toast(`已加入 ${files.length} 个下载任务`);
+}
+function renderQueue(){
+  const tb=$("#dl-body");
+  tb.innerHTML=queue.map(t=>{
+    const [txt,cls]=DL_TEXT[t.status];
+    return `<tr><td><div style="display:flex;align-items:center;gap:8px">${fileIcon(t.node.type)}
+      <span>${courseOf().name}/资料/${t.node.name}</span></div></td>
+      <td class="muted">${t.node.size||"—"}</td><td>${chip(txt)}</td>
+      <td><div class="pbar ${t.status==="done"?"done":""}"><div style="width:${t.pct}%"></div></div></td></tr>`;
+  }).join("");
+  const done=queue.filter(t=>t.status==="done").length;
+  const skip=queue.filter(t=>t.status==="skip_exist").length;
+  const other=queue.filter(t=>["failed","cancelled"].includes(t.status)).length;
+  $("#st-total").textContent=queue.length; $("#st-done").textContent=done;
+  $("#st-skip").textContent=skip; $("#st-other").textContent=other;
+  const active=queue.some(t=>["queued","running"].includes(t.status));
+  $("#dl-badge").style.display=active?"":"none";
+  $("#dl-badge").textContent=queue.filter(t=>t.status!=="done"&&t.status!=="skip_exist").length;
+}
+function tickNext(){
+  const next=queue.find(t=>t.status==="queued");
+  if(!next){ finishQueue(); return; }
+  next.status="running"; renderQueue();
+  if(next.node.skip){ next.status="skip_exist"; next.pct=100; renderQueue(); tickNext(); return; }
+  dlTimer=setInterval(()=>{
+    next.pct=Math.min(100,next.pct+2+Math.random()*4);
+    if(next.pct>=100){ next.pct=100; next.status="done"; clearInterval(dlTimer); dlTimer=null;
+      renderQueue(); tickNext(); }
+    else renderQueue();
+  },60);
+}
+function finishQueue(){
+  $("#dl-cancel").style.display="none";
+  const done=queue.filter(t=>t.status==="done").length;
+  const skip=queue.filter(t=>t.status==="skip_exist").length;
+  const other=queue.length-done-skip;
+  $("#dl-hint").textContent=`本轮任务已结束：完成 ${done} · 跳过 ${skip} · 禁止/失败 ${other}（演示，不写磁盘）`;
+  if(queue.length) toast(`下载结束：完成 ${done} · 跳过 ${skip}`);
+  $("#dl-badge").style.display="none";
+}
+function cancelQueue(silent){
+  if(dlTimer){ clearInterval(dlTimer); dlTimer=null; }
+  queue.forEach(t=>{ if(["queued","running"].includes(t.status)) t.status="cancelled"; });
+  if(!silent){ renderQueue(); finishQueue(); }
+}
+
+/* ================= 作业（需求 2：双击直接跳浏览器） ================= */
+function renderHomework(){
+  $("#hw-body").innerHTML=HOMEWORK.map((hw,i)=>`
+    <tr data-i="${i}" ondblclick="openHwInBrowser(${i})" onclick="selectHw(this)">
+      <td class="muted">${hw.course}</td><td><b>${hw.title}</b></td>
+      <td>${chip(hw.status)}</td><td class="muted">${hw.time}</td></tr>`).join("");
+  const pending=HOMEWORK.filter(h=>h.status==="未交").length;
+  const reviewing=HOMEWORK.filter(h=>h.status==="待批阅").length;
+  $("#hw-sum").textContent=`共 ${HOMEWORK.length} 项作业 · 未交 ${pending} · 待批阅 ${reviewing}。提示：双击行在浏览器中打开`;
+  $("#hw-badge").textContent=pending; $("#hw-badge").style.display=pending?"":"none";
+}
+function selectHw(tr){
+  document.querySelectorAll("#hw-body tr").forEach(r=>r.classList.remove("selected"));
+  tr.classList.add("selected");
+}
+function openHwInBrowser(i){
+  const hw=HOMEWORK[i];
+  window.open(hw.url,"_blank","noopener");
+  toast(`已在系统浏览器打开作业「${hw.title}」`);
+}
+
+/* ================= 启动 ================= */
+initCourses(); buildState(); updateDirUI(); renderMaterials(); renderHomework();
+$("#dl-cancel").style.display="none";
+showPage("login");          // 未登录：登录引导即主界面；成功后自动进入资料下载
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# 本地数据、浏览器 profile 与下载产物（含个人凭证/课程信息，禁止入库）
+data/
+downloads/
+docs/MVP验证报告.md
+
+# 打包产物
+build/
+dist/
+
+# 本地 IDE/计划文档
+.trae/

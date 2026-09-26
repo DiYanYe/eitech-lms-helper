@@ -1,0 +1,55 @@
+# -*- coding: utf-8 -*-
+"""SQLite 最小存储：下载记录（“跳过已下载”的判断依据之一）。"""
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+
+from app import config
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS downloads (
+    course_id     TEXT NOT NULL,
+    relative_path TEXT NOT NULL,
+    local_path    TEXT NOT NULL,
+    bytes_total   INTEGER,
+    status        TEXT NOT NULL,
+    updated_at    TEXT NOT NULL,
+    PRIMARY KEY (course_id, relative_path)
+);
+"""
+
+
+class Storage:
+    def __init__(self, db_path: Path = None):
+        path = db_path or config.DB_PATH
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.conn = sqlite3.connect(path)
+
+    def init_schema(self):
+        self.conn.executescript(_SCHEMA)
+
+    def is_downloaded(self, course_id: str, relative_path: str) -> bool:
+        self.init_schema()
+        row = self.conn.execute(
+            "SELECT 1 FROM downloads WHERE course_id=? AND relative_path=? AND status='done'",
+            (course_id, relative_path),
+        ).fetchone()
+        return row is not None
+
+    def mark_done(self, course_id: str, relative_path: str, local_path, bytes_total: int):
+        self.init_schema()
+        self.conn.execute(
+            "INSERT OR REPLACE INTO downloads VALUES (?,?,?,?,?,?)",
+            (course_id, relative_path, str(local_path), bytes_total, "done",
+             datetime.now().isoformat(timespec="seconds")),
+        )
+        self.conn.commit()
+
+    def clear_course(self, course_id: str):
+        """清空某课程下载记录（重测用，不删文件）。"""
+        self.init_schema()
+        self.conn.execute("DELETE FROM downloads WHERE course_id=?", (course_id,))
+        self.conn.commit()
+
+    def close(self):
+        self.conn.close()
