@@ -8,10 +8,11 @@
 - 依赖已固定于 `requirements.txt`（DrissionPage 4.1.1.4 / httpx / bs4 / lxml / PySide6 6.11.2），不要随意升级 DrissionPage 小版本（4.1.x API：`ChromiumOptions.set_argument()`，**没有** `add_arg`）；构建期依赖独立在 `requirements-dev.txt`（pyinstaller/pillow），勿混入运行依赖
 - 打包：`pyinstaller 东方理工LMS助手.spec --noconfirm`（eitech-lms 环境，产物 dist/ 压 zip 分发）；ico 由 `scripts/make_ico.py` 生成
 - 路径两分（config.py，改路径相关代码必看）：`BASE_DIR` = 可写目录（frozen 时 exe 旁，data/downloads 落这），`ASSET_DIR` = 包内只读资源（图标/）；**写文件一律 BASE_DIR 系常量、读随包素材一律 ASSET_DIR**（原 PROJECT_ROOT 已删）
+- 开源仓库：https://github.com/DiYanYe/eitech-lms-helper（main 分支；gh CLI 已登录账号 DiYanYe，git 身份同账号）；推 Gitee 镜像 / 发 Release 时复用 gh 与现有 spec
 
 ## 红线（违反即事故）
 
-- **Cookie（含 vc3）不打印、不写日志、不入 git**；`data/`、`downloads/`、`docs/MVP验证报告.md`、`build/`、`dist/` 均在 .gitignore，永远不要提交
+- **Cookie（含 vc3）不打印、不写日志、不入 git**；`data/`、`downloads/`、`docs/MVP验证报告.md`、`build/`、`dist/`、`.trae/` 均在 .gitignore，永远不要提交（新增敏感目录先补 .gitignore 再提交，勿背清单）
 - **尊重平台权限**：`isdown=0`（教师未开放下载）不强行获取；`tch-courseware`（教师课件）按产品决策不遍历不下载
 - **风控安全**：请求间随机延迟 1~3s（`config.REQUEST_DELAY`）不可删除；只读操作；命中 412/403/429 立即停，不自动硬闯
 - 平台接口细节以 `docs/接口实测文档.md` 为准（2026-09-26 更新，含分页实证）；开源资料里的旧版接口（mooc1/coursedata、ananas 直链、ananas/status）已失效，不要照搬
