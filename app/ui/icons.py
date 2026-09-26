@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""文件类型图标：加载 图标/ 目录下的彩色 SVG（与 docs/ui-demo.html 同源素材）。
+"""文件类型图标：加载 assets/ 目录下的彩色 SVG（与 docs/ui-demo.html 同源素材）。
 
 未提供素材的类型（压缩包/未知）回退为灰底扩展名徽章（QPainter 绘制）。
 """
@@ -11,13 +11,13 @@ from app import config
 
 ICON_DIR = config.ASSET_DIR
 _SVG_MAP = {
-    "pdf": "文件类型-pdf.svg",
-    "doc": "文件类型-文档.svg", "docx": "文件类型-文档.svg",
-    "ppt": "文件类型-ppt.svg", "pptx": "文件类型-ppt.svg",
-    "mp4": "文件类型-视频.svg", "mov": "文件类型-视频.svg", "avi": "文件类型-视频.svg",
-    "mkv": "文件类型-视频.svg", "flv": "文件类型-视频.svg",
-    "mp3": "文件类型-音频.svg", "wav": "文件类型-音频.svg", "m4a": "文件类型-音频.svg",
-    "flac": "文件类型-音频.svg", "aac": "文件类型-音频.svg",
+    "pdf": "filetype-pdf.svg",
+    "doc": "filetype-doc.svg", "docx": "filetype-doc.svg",
+    "ppt": "filetype-ppt.svg", "pptx": "filetype-ppt.svg",
+    "mp4": "filetype-video.svg", "mov": "filetype-video.svg", "avi": "filetype-video.svg",
+    "mkv": "filetype-video.svg", "flv": "filetype-video.svg",
+    "mp3": "filetype-audio.svg", "wav": "filetype-audio.svg", "m4a": "filetype-audio.svg",
+    "flac": "filetype-audio.svg", "aac": "filetype-audio.svg",
 }
 _cache: dict = {}
 
@@ -46,7 +46,7 @@ def file_icon(ext: str) -> QIcon:
 
 
 def app_icon() -> QIcon:
-    """应用图标（托盘/窗口）：优先加载 图标/logo.*（正式 logo 落地零代码接入），
+    """应用图标（托盘/窗口）：优先加载 assets/logo.*（正式 logo 落地零代码接入），
     否则绘制品牌占位图（VI 红 #92071C 圆角底 + 白「东」）。"""
     if "app" in _cache:
         return _cache["app"]

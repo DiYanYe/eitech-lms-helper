@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""构建期工具：图标/logo.png → 图标/logo.ico（多尺寸，exe/安装器图标用）。
+"""构建期工具：assets/logo.png → assets/logo.ico（多尺寸，exe/安装器图标用）。
 
 用法（eitech-lms 环境内）：
     python scripts/make_ico.py
@@ -11,8 +11,8 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "图标" / "logo.png"
-DST = ROOT / "图标" / "logo.ico"
+SRC = ROOT / "assets" / "logo.png"
+DST = ROOT / "assets" / "logo.ico"
 SIZES = [16, 24, 32, 48, 64, 128, 256]
 
 

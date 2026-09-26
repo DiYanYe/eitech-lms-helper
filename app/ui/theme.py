@@ -6,8 +6,8 @@
 """
 from app import config
 
-# 勾选态指示器内的白色对勾（图标/ 目录素材；文件缺失时优雅退化为纯红底色块）
-_CHECK_SVG = (config.ASSET_DIR / "勾选-白.svg").as_posix()
+# 勾选态指示器内的白色对勾（assets/ 目录素材；文件缺失时优雅退化为纯红底色块）
+_CHECK_SVG = (config.ASSET_DIR / "check-white.svg").as_posix()
 
 _APP_QSS = """
 * { font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif; outline: none; }

@@ -7,7 +7,7 @@
 - 语法/导入检查：`py_compile` 各模块；核心链路验证：`scripts\verify_mvp.py`（`--no-download` / `--course 名称` / `--max-files N`）；GUI：`python -m app.ui.main`
 - 依赖已固定于 `requirements.txt`（DrissionPage 4.1.1.4 / httpx / bs4 / lxml / PySide6 6.11.2），不要随意升级 DrissionPage 小版本（4.1.x API：`ChromiumOptions.set_argument()`，**没有** `add_arg`）；构建期依赖独立在 `requirements-dev.txt`（pyinstaller/pillow），勿混入运行依赖
 - 打包：`pyinstaller 东方理工LMS助手.spec --noconfirm`（eitech-lms 环境，产物 dist/ 压 zip 分发）；ico 由 `scripts/make_ico.py` 生成
-- 路径两分（config.py，改路径相关代码必看）：`BASE_DIR` = 可写目录（frozen 时 exe 旁，data/downloads 落这），`ASSET_DIR` = 包内只读资源（图标/）；**写文件一律 BASE_DIR 系常量、读随包素材一律 ASSET_DIR**（原 PROJECT_ROOT 已删）
+- 路径两分（config.py，改路径相关代码必看）：`BASE_DIR` = 可写目录（frozen 时 exe 旁，data/downloads 落这），`ASSET_DIR` = 包内只读资源（assets/）；**写文件一律 BASE_DIR 系常量、读随包素材一律 ASSET_DIR**（原 PROJECT_ROOT 已删）
 - 开源仓库：https://github.com/DiYanYe/eitech-lms-helper（main 分支；gh CLI 已登录账号 DiYanYe，git 身份同账号）；推 Gitee 镜像 / 发 Release 时复用 gh 与现有 spec
 
 ## 红线（违反即事故）
@@ -29,7 +29,7 @@
 - 布局两侧 `addStretch()` 不要带 stretch 参数（带 1 会和内容 stretch 三分空间）；勾选状态唯一源是页面的 `_checked` 集合，树控件只作视觉呈现
 - `CheckTree` 接管 mouseReleaseEvent：箭头区判定是 `pos.x() < visualItemRect(item).x()`（该矩形已排除缩进槽，勿再叠加层数阈值，否则复选框点击被误转发原生 toggle）
 - GUI 数据契约（2026-09-26 接入真实后端）：页面缓存一律按 **course_key**（`courseId|clazzId`，同名多班级可共存）；树/作业为异步渐进装载（`set_courses(courses)` + `set_course_roots(key, roots, error)` + `begin_load_if_needed` 闸门），**未选课程零请求**（选课持久化 QSettings key `courses/selected`）；`Storage`（sqlite）必须在 DownloadWorker.run() 内创建，禁止跨线程复用连接；worker 停止接口不强制统一（单发短任务如 CourseListWorker 无 request_stop），teardown 以 `getattr(w, "request_stop", None)` 探测 + 未停线程 terminate 兜底（防退出时 QThread 运行中被销毁 qFatal）
-- 复选框/滚动条必须显式 QSS（theme.py 已内置）：Fusion 默认的 indicator 在对话框内渲染为黑方块、QScrollBar 是粗矩形；勾选态图 = `图标/勾选-白.svg`，经 theme.py 的 `%%CHECK%%` 占位替换注入绝对路径（文件缺失退化为纯红底）
+- 复选框/滚动条必须显式 QSS（theme.py 已内置）：Fusion 默认的 indicator 在对话框内渲染为黑方块、QScrollBar 是粗矩形；勾选态图 = `assets/check-white.svg`，经 theme.py 的 `%%CHECK%%` 占位替换注入绝对路径（文件缺失退化为纯红底）
 - 树/表格卡片 `border-radius: 14px` 会被方形 `QHeaderView::section` 盖住左上/右上角。**两条死路已实测**：QSS `::section:first/:last` 圆角在 Qt 6 不生效；`paintSection` 里 `setClipPath` 会被样式引擎 drawControl 内的 ReplaceClip 重置。**唯一可靠修法 = `widgets.RoundedHeader` 用 `setMask`（部件级遮罩，绘制系统强制、不受 painter 裁剪重置影响）**，radius=外圆角−边框宽=13；带表头的卡片视图统一 `setHeader/setHorizontalHeader(RoundedHeader(...))`。取证技巧：`widget.render()` 到品红底 QImage 再 10x 放大四角，方形覆盖一目了然（`grab()` 会不透明填白，看不出透明区）
 - 样式/交互改动以 `docs/ui-demo.html` 为基准；改完用 offscreen + `WA_DontShowOnScreen` 截图自检（offscreen 平台 CJK 显示为方块，须用 windows 平台才出真实字体）
 - offscreen 平台下程序退出时 QSystemTrayIcon 会触发 0xC0000409 崩溃伪像（输出已完整、仅退出码异常）——托盘相关冒烟脚本用 `os._exit(0)` 收尾或忽略退出码；windows 平台正常
@@ -56,5 +56,5 @@
 - 作业列表按状态分组：未交 → 待批阅 → 已提交 → 其他（未知状态殿后），未交置顶；分组头跨 4 列、禁选禁双击（homework_page._GROUP_ORDER）
 - 启动自动登录（2026-09-26）：`MainWindow.__init__` 调 `login_page.start_auto()`——LoginWorker(auto=True) 仅尝试本地 Cookie 缓存（不弹浏览器）；命中即直接进资料页并走课程列表流程，未命中/失效留在登录页引导手动登录（失效缓存的清除由既有 session_expired 链路兜底）
 - 手动登录/重新登录（2026-09-26）：点登录页按钮 = LoginWorker(auto=False) **忽略缓存、必弹浏览器**（用户语义：重新登录就是强制重登，比如换账号）；只有启动自动登录读缓存
-- 系统托盘与关闭行为（2026-09-26）：点 × 弹 CloseConfirmDialog 询问（「最小化到托盘」为默认按钮，可勾选记住 → QSettings key `close/action`，值 ask/tray/exit）；托盘常驻，左键/双击恢复窗口，右键菜单「显示主窗口 / 关闭行为三选一（互斥）/ 退出」；仅拦截 ×，最小化按钮不变；托盘/窗口图标走 `icons.app_icon()`——`图标/logo.png|ico|svg` 存在即优先加载，否则绘制 VI 红占位兜底（现役 logo 为 512×512 裁剪版）
+- 系统托盘与关闭行为（2026-09-26）：点 × 弹 CloseConfirmDialog 询问（「最小化到托盘」为默认按钮，可勾选记住 → QSettings key `close/action`，值 ask/tray/exit）；托盘常驻，左键/双击恢复窗口，右键菜单「显示主窗口 / 关闭行为三选一（互斥）/ 退出」；仅拦截 ×，最小化按钮不变；托盘/窗口图标走 `icons.app_icon()`——`assets/logo.png|ico|svg` 存在即优先加载，否则绘制 VI 红占位兜底（现役 logo 为 512×512 裁剪版）
 - 打包分发（2026-09-26 定稿）：便携 zip 路线——PyInstaller onedir + windowed（不用 onefile：启动慢、杀软误报高；不启用 UPX）；spec 提交入库，`使用说明.txt` 由 spec 末尾 shutil.copy2 复制到 exe 旁（datas 目标 `.` 在 onedir 下落 `_internal/`，同学看不到，不能依赖 datas）；Edge/Python 不打包（`find_edge()` 系统检测）；Inno Setup 留作后续可选项（复用 ico/spec）

@@ -162,7 +162,7 @@ select.sel:hover{border-color:var(--brand)}
 .cbx.half::after{content:"";width:8px;height:2px;background:#fff;border-radius:1px}
 .cbx.disabled{background:var(--gray-16);border-color:var(--line);cursor:not-allowed}
 .node-ico{width:24px;display:grid;place-items:center;flex:none}
-/* 文件类型图标：彩色 SVG（用户提供，见 图标/ 目录，内联为 symbol 雪碧图），统一 22px；
+/* 文件类型图标：彩色 SVG（用户提供，见 assets/ 目录，内联为 symbol 雪碧图），统一 22px；
    未提供图标的类型（压缩包/未知）回退灰底扩展名徽章 */
 .fico{width:22px;height:22px;flex:none;display:block}
 .fico-badge{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;
@@ -376,7 +376,7 @@ function toast(msg){
   $("#toast-box").appendChild(el); setTimeout(()=>el.remove(),2600);
 }
 function materialUrl(c){ return `https://mooc2-ans.chaoxing.com/mooc2-ans/coursedata/stu-datalist?courseid=${c.id}&clazzid=${c.clazz}&cpi=${c.cpi}&ut=s`; }
-/* 文件类型 → 彩色 SVG 图标（用户提供，见 图标/ 目录）；未提供图标的类型回退扩展名徽章 */
+/* 文件类型 → 彩色 SVG 图标（用户提供，见 assets/ 目录）；未提供图标的类型回退扩展名徽章 */
 const FICO={pdf:"ft-pdf",doc:"ft-doc",docx:"ft-doc",ppt:"ft-ppt",pptx:"ft-ppt",
   mp4:"ft-vid",mov:"ft-vid",avi:"ft-vid",mkv:"ft-vid",flv:"ft-vid",
   mp3:"ft-aud",wav:"ft-aud",m4a:"ft-aud",flac:"ft-aud",aac:"ft-aud"};

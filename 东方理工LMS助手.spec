@@ -4,7 +4,7 @@
 #   产物：dist/东方理工LMS助手/（整个文件夹压 zip 分发）
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('图标', '图标'), ('使用说明.txt', '.')]
+datas = [('assets', 'assets'), ('使用说明.txt', '.')]
 binaries = []
 hiddenimports = []
 # DrissionPage 自带配置模板等数据文件，整包收集
@@ -39,7 +39,7 @@ exe = EXE(
     strip=False,
     upx=False,          # 不加壳，降低杀软误报
     console=False,      # GUI 程序，无控制台窗口
-    icon='图标/logo.ico',
+    icon='assets/logo.ico',
 )
 coll = COLLECT(
     exe,

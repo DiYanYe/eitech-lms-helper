@@ -4,7 +4,7 @@
 路径分两类：
 - BASE_DIR：可写目录。开发模式 = 仓库根；PyInstaller 打包后 = exe 所在目录
   （data/、downloads/ 落在 exe 旁，随文件夹整体便携迁移）。
-- ASSET_DIR：只读随包资源（图标/）。开发模式 = 仓库根/图标；打包后 = 包内 _internal/图标。
+- ASSET_DIR：只读随包资源（assets/）。开发模式 = 仓库根/assets；打包后 = 包内 _internal/assets。
 """
 import sys
 from pathlib import Path
@@ -12,10 +12,10 @@ from pathlib import Path
 # ---------- 路径 ----------
 if getattr(sys, "frozen", False):
     BASE_DIR = Path(sys.executable).resolve().parent
-    ASSET_DIR = Path(getattr(sys, "_MEIPASS", "")) / "图标" if getattr(sys, "_MEIPASS", None) else BASE_DIR / "图标"
+    ASSET_DIR = Path(getattr(sys, "_MEIPASS", "")) / "assets" if getattr(sys, "_MEIPASS", None) else BASE_DIR / "assets"
 else:
     BASE_DIR = Path(__file__).resolve().parents[1]
-    ASSET_DIR = BASE_DIR / "图标"
+    ASSET_DIR = BASE_DIR / "assets"
 
 DATA_DIR = BASE_DIR / "data"
 EDGE_PROFILE = DATA_DIR / "edge_profile"
