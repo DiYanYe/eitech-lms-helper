@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """通用界面小部件：导航按钮（带徽标）、用户条、Toast、课程选择器、圆角表头、页面骨架、统计卡。"""
+import time
+
 from PySide6.QtCore import QPoint, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QPainterPath, QRegion
 from PySide6.QtWidgets import (
@@ -164,6 +166,7 @@ class CoursePicker(QPushButton):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._items: list = []
         self._index = -1
+        self._closed_at = -1e9    # 菜单最近一次关闭的时刻（单调时钟秒）
         self.clicked.connect(self.show_menu)
         self._sync_text()
 
@@ -185,6 +188,10 @@ class CoursePicker(QPushButton):
             self.setText("选择课程   ▾")
 
     def show_menu(self):
+        # 菜单开着时点按钮：Qt 关闭菜单后会把这次点击重放给按钮 → 立即再次触发
+        # show_menu 造成"关不掉"。用短时间窗吞掉这次关闭点击，实现二次点击 = 收起。
+        if time.monotonic() - self._closed_at < 0.3:
+            return
         menu = QMenu(self)
         menu.setObjectName("CourseMenu")
         # 圆角菜单去黑角三件套：无边框 + 去掉 DWM 方形投影 + 半透明背景
@@ -205,6 +212,7 @@ class CoursePicker(QPushButton):
             menu.addSeparator()
         manage_act = menu.addAction("⚙  管理课程…")
         chosen = menu.exec(self.mapToGlobal(QPoint(0, self.height() + 4)))
+        self._closed_at = time.monotonic()
         if chosen is None:
             return
         if chosen is manage_act:

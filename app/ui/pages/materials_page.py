@@ -5,6 +5,8 @@
 - 点击文件所在行任意位置即可勾选/取消；点击文件夹一次全选/清空其下文件
 - 勾选状态以 self._checked（叶子 data_id 集合）为唯一状态源，树控件仅作视觉呈现
 """
+import os
+
 from PySide6.QtCore import Qt, QSettings, QSize, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
@@ -118,11 +120,11 @@ class MaterialsPage(QWidget):
         change_btn.setToolTip("弹出系统目录选择对话框")
         change_btn.clicked.connect(self._pick_dir)
         dir_lay.addWidget(change_btn)
-        reset_btn = QPushButton("↺")
-        reset_btn.setObjectName("Ghost")
-        reset_btn.setToolTip("恢复默认目录")
-        reset_btn.clicked.connect(self._reset_dir)
-        dir_lay.addWidget(reset_btn)
+        open_btn = QPushButton("打开")
+        open_btn.setObjectName("Ghost")
+        open_btn.setToolTip("在系统资源管理器中打开当前下载目录")
+        open_btn.clicked.connect(self._open_dir)
+        dir_lay.addWidget(open_btn)
         bar.addWidget(dir_box, 1)
         lay.addLayout(bar)
 
@@ -440,11 +442,10 @@ class MaterialsPage(QWidget):
         self._update_dir_ui()
         self._toast("下载目录已更新，后续下载将保存到该目录")
 
-    def _reset_dir(self):
-        self.download_dir = DEFAULT_DIR
-        self._settings.setValue("download/dir", DEFAULT_DIR)
-        self._update_dir_ui()
-        self._toast("已恢复默认下载目录")
+    def _open_dir(self):
+        os.makedirs(self.download_dir, exist_ok=True)    # 目录可能尚未创建（还没下载过）
+        QDesktopServices.openUrl(QUrl.fromLocalFile(self.download_dir))
+        self._toast("已在资源管理器中打开下载目录")
 
     def _emit_download(self):
         files = self._checked_files()

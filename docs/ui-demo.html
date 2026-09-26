@@ -261,7 +261,7 @@ select.sel:hover{border-color:var(--brand)}
           <span class="dir-label">下载到</span>
           <span class="dir-path" id="dir-path">—</span>
           <button class="btn btn-ghost btn-sm" onclick="pickDir()" title="弹出系统目录选择对话框（Demo 用浏览器原生目录选择器模拟，无法读取绝对路径）">更改</button>
-          <button class="btn btn-ghost btn-sm" onclick="resetDir()" title="恢复默认目录">↺</button>
+          <button class="btn btn-ghost btn-sm" onclick="openDir()" title="在系统资源管理器中打开当前下载目录">打开</button>
           <input type="file" id="dir-picker" webkitdirectory hidden>
         </div>
       </div>
@@ -559,9 +559,10 @@ $("#dir-picker").addEventListener("change",e=>{
   updateDirUI(); toast("下载目录已更新："+folder);
   e.target.value="";
 });
-function resetDir(){
-  downloadDir=DEFAULT_DIR; localStorage.setItem("eit-lms-dl-dir",downloadDir);
-  updateDirUI(); toast("已恢复默认下载目录");
+function openDir(){
+  /* 正式版：os.makedirs 后 QDesktopServices.openUrl(QUrl.fromLocalFile(dir))；
+     Demo 无法调起系统资源管理器，仅提示。 */
+  toast("已在资源管理器中打开下载目录（Demo 无法调起系统资源管理器）");
 }
 
 /* ================= 下载管理（模拟队列） ================= */
