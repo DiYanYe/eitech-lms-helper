@@ -38,6 +38,7 @@
 - 托盘菜单圆角必须透明三件套（同 widgets.py CourseMenu）：`FramelessWindowHint + NoDropShadowWindowHint + WA_TranslucentBackground`，缺一件就露出系统矩形底
 - 托盘化（窗口隐藏）后退出不能依赖 `self.close()`——`lastWindowClosed` 只在**可见**窗口被关闭时触发，隐藏窗口 close 后进程不退出；托盘「退出」必须显式 `_teardown()` + `QApplication.quit()`（main_window._quit_app）
 - QMenu 关闭后会重放点击事件导致菜单立即重新展开——记录关闭时刻戳，300ms 内的再次点击视为关闭操作直接忽略（widgets.py CoursePicker._closed_at）
+- QThread 的完成信号（如 all_finished）从 run() finally 发出时线程可能尚未真正退出：替换引用或立即启动下一个 worker 前先 `wait()` 收尾，否则引用计数回收可能撞上 "QThread destroyed while running"（download_page 队列派发已按此处理）
 
 ## 深入文档
 
@@ -62,3 +63,4 @@
 - 手动登录/重新登录（2026-09-26）：点登录页按钮 = LoginWorker(auto=False) **忽略缓存、必弹浏览器**（用户语义：重新登录就是强制重登，比如换账号）；只有启动自动登录读缓存
 - 系统托盘与关闭行为（2026-09-26）：点 × 弹 CloseConfirmDialog 询问（「最小化到托盘」为默认按钮，可勾选记住 → QSettings key `close/action`，值 ask/tray/exit）；托盘常驻，左键/双击恢复窗口，右键菜单「显示主窗口 / 关闭行为三选一（互斥）/ 退出」；仅拦截 ×，最小化按钮不变；托盘/窗口图标走 `icons.app_icon()`——`assets/logo.png|ico|svg` 存在即优先加载，否则绘制 VI 红占位兜底（现役 logo 为 512×512 裁剪版）
 - 打包分发（2026-09-26 定稿）：便携 zip 路线——PyInstaller onedir + windowed（不用 onefile：启动慢、杀软误报高；不启用 UPX）；spec 提交入库，`使用说明.txt` 由 spec 末尾 shutil.copy2 复制到 exe 旁（datas 目标 `.` 在 onedir 下落 `_internal/`，同学看不到，不能依赖 datas）；Edge/Python 不打包（`find_edge()` 系统检测）；Inno Setup 留作后续可选项（复用 ico/spec）
+- 下载任务排队（2026-09-28）：下载进行中再发起任务**不中断当前任务**，DownloadPage 内排队——表格追加行「排队中」，`all_finished` 后按入队顺序自动派发（worker 行号经 `self._offset` 映射表格行，行在入队时已加、派发不重加）；「取消全部」= 停当前 + 清队列；会话失效/风控先清队列再转发信号（排队 worker 持旧会话不可再跑、风控后不自动继续请求）；空闲发起新任务仍清空表格；离线冒烟 `scripts/smoke_download_queue.py`（FakeWorker 模拟，23 项断言）

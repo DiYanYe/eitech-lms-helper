@@ -341,6 +341,13 @@ const MATERIALS = {
   ],
   "线性代数": [ F("教学日历.pdf","300KB"), F("习题册第一册.pdf","6.2MB") ],
 };
+const NODE_PATH = {};   // id → 相对路径（落盘 = 下载根/课程名/相对路径，无「资料」中间层）
+for(const _cn in MATERIALS){
+  (function _walk(list, prefix){
+    list.forEach(nd=>{ NODE_PATH[nd.id]=prefix?`${prefix}/${nd.name}`:nd.name;
+      if(nd.children) _walk(nd.children, NODE_PATH[nd.id]); });
+  })(MATERIALS[_cn], "");
+}
 const HOMEWORK = [
   { course:"计算机组成原理", title:"第1章 课后习题：计算机系统概述", status:"未交", time:"剩余124小时44分钟",
     url:"https://mock.chaoxing.com/work/1" },
@@ -572,21 +579,22 @@ const DL_TEXT={queued:["排队中","chip-gray"],running:["下载中","chip-amber
 function startDownload(){
   const course=courseOf(), files=checkedFiles();
   if(!files.length) return;
-  cancelQueue(true);
-  queue=files.map(nd=>({node:nd,pct:0,status:"queued"}));
+  const busy=!!dlTimer;   // 有任务进行中：追加排队不打断（对齐 2026-09-28 下载队列决策）
+  queue.push(...files.map(nd=>({node:nd,pct:0,status:"queued",course:course.name})));
   $("#dl-empty").style.display="none";
   $("#dl-cancel").style.display="inline-flex";
-  $("#dl-hint").textContent="正在下载…（模拟）";
+  $("#dl-hint").textContent=busy?"新任务已排队…（当前任务完成后自动开始）":"正在下载…（模拟）";
   showPage("downloads");
-  renderQueue(); tickNext();
-  toast(`已加入 ${files.length} 个下载任务`);
+  renderQueue();
+  if(!busy) tickNext();
+  toast(busy?`已有下载进行中，新任务（${files.length} 个文件）已排队`:`已加入 ${files.length} 个下载任务`);
 }
 function renderQueue(){
   const tb=$("#dl-body");
   tb.innerHTML=queue.map(t=>{
     const [txt,cls]=DL_TEXT[t.status];
     return `<tr><td><div style="display:flex;align-items:center;gap:8px">${fileIcon(t.node.type)}
-      <span>${courseOf().name}/资料/${t.node.name}</span></div></td>
+      <span>${t.course||courseOf().name}/${NODE_PATH[t.node.id]||t.node.name}</span></div></td>
       <td class="muted">${t.node.size||"—"}</td><td>${chip(txt)}</td>
       <td><div class="pbar ${t.status==="done"?"done":""}"><div style="width:${t.pct}%"></div></div></td></tr>`;
   }).join("");
