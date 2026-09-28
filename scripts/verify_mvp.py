@@ -195,13 +195,15 @@ def main() -> int:
                 size = f"（{r.bytes_written} bytes）" if r.bytes_written else ""
                 print(f"   {r.status:<12} {r.relative_path} {size} {r.detail}")
             n_done = sum(1 for r in results if r.status == "done")
+            n_upd = sum(1 for r in results if r.status == "updated")
             n_skip = sum(1 for r in results if r.status.startswith("skip"))
             n_forb = sum(1 for r in results if r.status == "forbidden")
             n_fail = sum(1 for r in results if r.status == "failed")
-            # 首次运行应为全 done；复跑场景全 skip 也是预期（跳过逻辑生效）
-            all_accounted = (n_done + n_skip + n_forb) == len(todo_files)
+            # 首次运行应为全 done；复跑场景全 skip 也是预期（跳过逻辑生效）；
+            # updated = 时间戳校验判定平台较新，已覆盖本地旧文件
+            all_accounted = (n_done + n_upd + n_skip + n_forb) == len(todo_files)
             record(5, n_fail == 0 and all_accounted and len(todo_files) > 0,
-                   f"成功 {n_done} / 跳过 {n_skip} / 禁止 {n_forb} / 失败 {n_fail}")
+                   f"成功 {n_done}（含更新 {n_upd}）/ 跳过 {n_skip} / 禁止 {n_forb} / 失败 {n_fail}")
             TODOS.extend([f"下载失败：{r.relative_path}（{r.detail}）"
                           for r in results if r.status == "failed"])
 

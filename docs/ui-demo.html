@@ -367,7 +367,7 @@ function parseSize(t){ const m = /([\d.]+)\s*(GB|MB|KB|B)/i.exec(t||""); if(!m) 
 function fmtSize(n){ if(!n) return ""; let u=["B","KB","MB","GB"],i=0; while(n>=1024&&i<3){n/=1024;i++}
   return (i?(n.toFixed(1)):n)+u[i]; }
 function chip(status){
-  const red=["未交","禁止下载","失败"], amber=["待批阅","下载中"];
+  const red=["未交","禁止下载","失败"], amber=["待批阅","下载中","已更新"];
   const cls = red.includes(status)?"chip-red":amber.includes(status)?"chip-amber":"chip-gray";
   return `<span class="chip ${cls}">${status}</span>`;
 }
@@ -567,6 +567,7 @@ function openDir(){
 
 /* ================= 下载管理（模拟队列） ================= */
 const DL_TEXT={queued:["排队中","chip-gray"],running:["下载中","chip-amber"],done:["完成","chip-gray"],
+  updated:["已更新","chip-amber"],
   skip_exist:["跳过（已存在）","chip-gray"],cancelled:["已取消","chip-gray"],failed:["失败","chip-red"]};
 function startDownload(){
   const course=courseOf(), files=checkedFiles();

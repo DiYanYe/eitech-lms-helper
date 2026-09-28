@@ -8,11 +8,19 @@
    首个成功策略记忆后供后续文件复用——实验矩阵写入验证报告
 3. 流式写 .part → 完成改名；同名冲突加序号；已下载（记录或本地文件）跳过
 
+时间戳校验（2026-09-28）：每文件按「平台上传时间 vs 本地基线（记录 remote_mtime / 本地文件
+mtime）」比对，平台较新 → 重新下载并**直接覆盖**本地旧文件（状态 updated），本地 mtime 回写为
+平台时间；本地较新（用户改过）不覆盖。平台时间缺省取列表 DOM，解析不到时回退 cldisk 响应头
+Last-Modified。
+
 风控约定：顺序下载 + 文件间随机延迟；尊重 isdown=0（教师禁止下载）不强行获取。
 """
+import os
 import random
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -27,7 +35,7 @@ REDIRECT_CODES = {301, 302, 303, 307, 308}
 @dataclass
 class DownloadResult:
     relative_path: str
-    status: str            # done / skip_record / skip_exist / forbidden / failed
+    status: str            # done / updated / skip_record / skip_exist / forbidden / failed / cancelled
     detail: str = ""
     bytes_written: int = 0
 
@@ -80,6 +88,86 @@ def _local_file_matches(dest: Path, size_text: str) -> bool:
         return True  # 无大小参考：存在即认为已下载（MVP 策略）
     actual = dest.stat().st_size
     return abs(actual - expected) <= max(2048, expected * 0.05)
+
+
+def _size_mismatch(bytes_total, size_hint) -> bool:
+    """记录/本地精确字节数与平台展示约数的大小比对（容差同 _local_file_matches）。
+
+    任一侧未知时返回 False（宁可不判变化，也不误覆盖）。
+    """
+    if bytes_total is None or size_hint is None:
+        return False
+    return abs(bytes_total - size_hint) > max(2048, size_hint * 0.05)
+
+
+def _fmt_time(ts) -> str:
+    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M") if ts else "未知"
+
+
+def _plan_action(node, dest: Path, rec, remote_epoch):
+    """时间戳校验决策（纯函数，便于离线测试）→ (action, detail)。
+
+    action：
+      skip_record 已下载且平台无更新（记录命中）
+      skip_exist  本地文件已是平台文件（无记录场景，或本地时间一致）
+      fresh       需要下载（本地无对应文件）
+      update      平台文件较新 / 旧记录与平台大小不符 → 重新下载并直接覆盖
+    remote_epoch：平台上传时间（Unix 秒；None = 平台时间不可用，退化旧行为）。
+    """
+    exists = dest.exists()
+    local_mtime = int(dest.stat().st_mtime) if exists else None
+    size_hint = parse_size_text(node.size_text)
+    rec_mtime = rec["remote_mtime"] if rec is not None else None
+    rec_bytes = rec["bytes_total"] if rec is not None else None
+
+    if rec is not None:
+        if remote_epoch is not None and rec_mtime is not None:
+            if remote_epoch > rec_mtime:
+                return "update", (f"平台已更新：{_fmt_time(remote_epoch)}"
+                                  f"（本地旧版 {_fmt_time(rec_mtime)}）")
+            if remote_epoch == rec_mtime and _size_mismatch(rec_bytes, size_hint):
+                return "update", "平台大小与记录不符（时间精度内重传）"
+            return "skip_record", "下载记录命中"
+        if remote_epoch is not None and rec_mtime is None:
+            # 升级前的旧记录：本次建立时间基线（大小明显不符说明下载后又更新过）
+            if not exists:
+                return "fresh", "记录在但本地文件缺失，重新下载"
+            if _size_mismatch(rec_bytes, size_hint):
+                return "update", "平台大小与旧记录不符，重新下载"
+            return "skip_record", "下载记录命中"
+        if not exists:
+            return "fresh", "记录在但本地文件缺失，重新下载"
+        return "skip_record", "下载记录命中"
+
+    if not exists:
+        return "fresh", ""
+    if remote_epoch is not None:
+        if local_mtime < remote_epoch:
+            return "update", (f"本地文件较旧：{_fmt_time(local_mtime)}"
+                              f"（平台 {_fmt_time(remote_epoch)}）")
+        if local_mtime == remote_epoch:
+            return "skip_exist", "本地文件已存在（时间与平台一致）"
+        return "skip_exist", "本地文件较新，不覆盖"
+    if _local_file_matches(dest, node.size_text):
+        return "skip_exist", "本地文件已存在"
+    return "fresh", ""
+
+
+def _probe_remote_mtime(ses, course, node, referer):
+    """DOM 未解析出平台时间时的回退：取 cldisk 直链响应头 Last-Modified。失败返回 None。"""
+    direct, _reason = resolve_direct_url(ses, course, node, referer)
+    if not direct:
+        return None
+    try:
+        resp = ses.head(direct, headers={"Referer": f"{config.MOOC1}/"})
+    except httpx.HTTPError:
+        return None
+    if resp.status_code != 200:
+        return None
+    try:
+        return int(parsedate_to_datetime(resp.headers.get("last-modified", "")).timestamp())
+    except (TypeError, ValueError):
+        return None
 
 
 def resolve_direct_url(ses, course, node, referer: str):
@@ -136,6 +224,8 @@ def download_course(ses, course, files, storage, referer: str, report: DownloadR
                     root: Path = None, on_result=None, on_progress=None, should_stop=None) -> list:
     """顺序下载文件列表（files 为 MaterialNode 列表），返回 DownloadResult 列表。
 
+    时间戳校验：每文件先按「平台上传时间 vs 本地基线」决策（_plan_action）——
+    已是最新跳过；平台较新直接覆盖（updated）；本地较新不覆盖。
     root：下载根目录（默认 config.DOWNLOAD_ROOT）。
     on_result(node, result)：每条结果即时回调（GUI 转发信号用）。
     on_progress(node, written, total)：当前文件流式进度（total 取 Content-Length，未知为 0）。
@@ -175,16 +265,30 @@ def download_course(ses, course, files, storage, referer: str, report: DownloadR
         if not node.is_down:
             emit(node, DownloadResult(rel, "forbidden", "教师未开放下载（isdown=0）"))
             continue
-        if storage.is_downloaded(course.course_id, rel):
-            emit(node, DownloadResult(rel, "skip_record", "下载记录命中"))
-            continue
+
+        # ---- 时间戳校验：平台上传时间 vs 本地基线（记录 remote_mtime / 本地 mtime）----
         dest = _final_path(root, course.name, rel)
-        if _local_file_matches(dest, node.size_text):
-            storage.mark_done(course.course_id, rel, dest,
-                              parse_size_text(node.size_text) or dest.stat().st_size)
-            emit(node, DownloadResult(rel, "skip_exist", "本地文件已存在"))
+        rec = storage.get_record(course.course_id, rel)
+        remote_epoch = node.remote_mtime
+        if remote_epoch is None and (rec is not None or dest.exists()):
+            remote_epoch = _probe_remote_mtime(ses, course, node, referer)  # DOM 无时间时的回退
+        action, decision = _plan_action(node, dest, rec, remote_epoch)
+
+        if action == "skip_record":
+            if remote_epoch is not None and rec is not None and rec["remote_mtime"] is None:
+                storage.update_baseline(course.course_id, rel, remote_epoch)  # 旧记录回填基线
+            emit(node, DownloadResult(rel, "skip_record", decision))
             continue
-        dest = _dedupe(dest)
+        if action == "skip_exist":
+            if remote_epoch is None:
+                storage.mark_done(course.course_id, rel, dest,
+                                  parse_size_text(node.size_text) or dest.stat().st_size)
+            elif int(dest.stat().st_mtime) == remote_epoch:   # 本地=平台文件：补建记录+基线
+                storage.mark_done(course.course_id, rel, dest, dest.stat().st_size, remote_epoch)
+            emit(node, DownloadResult(rel, "skip_exist", decision))
+            continue
+        if action == "fresh" and dest.exists():
+            dest = _dedupe(dest)
 
         direct, set_cookies = resolve_direct_url(ses, course, node, referer)
         if not direct:
@@ -227,9 +331,14 @@ def download_course(ses, course, files, storage, referer: str, report: DownloadR
                 rel, "cancelled" if cancelled_flag[0] else "failed",
                 "已取消" if cancelled_flag[0] else "cldisk 直链全部头部尝试失败"))
         else:
-            part.rename(dest)
-            storage.mark_done(course.course_id, rel, dest, written)
-            emit(node, DownloadResult(rel, "done", bytes_written=written))
+            os.replace(part, dest)   # 覆盖式落盘（updated 场景目标文件已存在）
+            if remote_epoch is not None:
+                os.utime(dest, (remote_epoch, remote_epoch))  # 本地文件时间=平台上传时间
+            storage.mark_done(course.course_id, rel, dest, written, remote_epoch)
+            if action == "update":
+                emit(node, DownloadResult(rel, "updated", decision, bytes_written=written))
+            else:
+                emit(node, DownloadResult(rel, "done", bytes_written=written))
         if not cancelled_flag[0]:
             time.sleep(random.uniform(*config.REQUEST_DELAY))
     report.results.extend(results)

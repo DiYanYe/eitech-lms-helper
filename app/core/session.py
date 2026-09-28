@@ -78,6 +78,10 @@ class ChaoxingSession:
             self._check_expire(resp)
         return resp
 
+    def head(self, url: str, **kw) -> httpx.Response:
+        """HEAD 请求（仅取响应头，如直链 Last-Modified）；无正文，跳过登录页检测。"""
+        return self.request("HEAD", url, **kw)
+
     def post(self, url: str, **kw) -> httpx.Response:
         resp = self.request("POST", url, **kw)
         if resp.status_code == 200:

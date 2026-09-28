@@ -140,7 +140,7 @@ class DownloadPage(QWidget):
 
     def _on_finished(self, row: int, status: str, detail: str):
         self._set_status(row, status, detail)
-        if status == "done":
+        if status in ("done", "updated"):
             wrap = self._table.cellWidget(row, 3)
             bar = wrap.findChild(QProgressBar) if wrap else None
             if bar:
@@ -198,7 +198,7 @@ class DownloadPage(QWidget):
         for row in range(total):
             item = self._table.item(row, 2)
             text = item.text() if item else ""
-            if "完成" in text:
+            if "完成" in text or "更新" in text:
                 done += 1
             elif "跳过" in text:
                 skip += 1

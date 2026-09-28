@@ -220,7 +220,7 @@ class DownloadWorker(QThread):
             if row is None:
                 return
             finished_rows.add(row)
-            if result.status == "done":
+            if result.status in ("done", "updated"):
                 stats["done"] += 1
             elif result.status.startswith("skip"):
                 stats["skip"] += 1

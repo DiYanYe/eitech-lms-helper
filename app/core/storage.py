@@ -18,30 +18,56 @@ CREATE TABLE IF NOT EXISTS downloads (
 );
 """
 
+# 轻量迁移：老库缺列时补齐（不重建表、不清数据）
+# remote_mtime = 平台文件上传时间（Unix 秒），下载/更新时写入基线，供时间戳校验比对
+_MIGRATIONS = {
+    "remote_mtime": "ALTER TABLE downloads ADD COLUMN remote_mtime INTEGER",
+}
+
 
 class Storage:
     def __init__(self, db_path: Path = None):
         path = db_path or config.DB_PATH
         path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(path)
+        self.conn.row_factory = sqlite3.Row   # 记录按列名访问（get_record 的消费方依赖）
 
     def init_schema(self):
         self.conn.executescript(_SCHEMA)
+        cols = {row[1] for row in self.conn.execute("PRAGMA table_info(downloads)")}
+        for col, sql in _MIGRATIONS.items():
+            if col not in cols:
+                self.conn.execute(sql)
+        self.conn.commit()
 
-    def is_downloaded(self, course_id: str, relative_path: str) -> bool:
+    def get_record(self, course_id: str, relative_path: str):
+        """取下载记录（local_path/bytes_total/remote_mtime）；无记录返回 None。"""
         self.init_schema()
-        row = self.conn.execute(
-            "SELECT 1 FROM downloads WHERE course_id=? AND relative_path=? AND status='done'",
+        return self.conn.execute(
+            "SELECT local_path, bytes_total, remote_mtime FROM downloads "
+            "WHERE course_id=? AND relative_path=? AND status='done'",
             (course_id, relative_path),
         ).fetchone()
-        return row is not None
 
-    def mark_done(self, course_id: str, relative_path: str, local_path, bytes_total: int):
+    def mark_done(self, course_id: str, relative_path: str, local_path, bytes_total: int,
+                  remote_mtime: int = None):
+        """记录一次成功下载/更新；remote_mtime 为平台文件上传时间（Unix 秒，未知传 None）。"""
         self.init_schema()
         self.conn.execute(
-            "INSERT OR REPLACE INTO downloads VALUES (?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO downloads "
+            "(course_id, relative_path, local_path, bytes_total, status, updated_at, remote_mtime) "
+            "VALUES (?,?,?,?,?,?,?)",
             (course_id, relative_path, str(local_path), bytes_total, "done",
-             datetime.now().isoformat(timespec="seconds")),
+             datetime.now().isoformat(timespec="seconds"), remote_mtime),
+        )
+        self.conn.commit()
+
+    def update_baseline(self, course_id: str, relative_path: str, remote_mtime: int):
+        """仅回填平台时间基线（不改动文件与其余记录字段）；记录不存在时不动作。"""
+        self.init_schema()
+        self.conn.execute(
+            "UPDATE downloads SET remote_mtime=? WHERE course_id=? AND relative_path=?",
+            (remote_mtime, course_id, relative_path),
         )
         self.conn.commit()
 

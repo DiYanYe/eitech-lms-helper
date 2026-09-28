@@ -12,6 +12,7 @@ import json
 import re
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from urllib.parse import quote
 
 from bs4 import BeautifulSoup
@@ -27,6 +28,17 @@ _TOOPEN_RE = re.compile(
 )
 _TOTAL_RE = re.compile(r"当前页共\s*(\d+)\s*个")          # 注意：这是“每页条数”，不是该层总数
 _TOTALPAGES_RE = re.compile(r'id="totalPages"[^>]*value="(\d+)"')  # 层 HTML 隐藏域，总页数
+
+# 平台上传时间（2026-09-28 探针实测：li.dataBody_time_stu，文本形如 "09-07  08:29"，无年份）
+# 注意：日与时间之间用 [\sT]* 紧贴匹配，不能写成 \s*日? 后再接 [\sT]+（贪婪 \s* 会吞掉分隔空格，
+#       导致时:分被丢弃、时间被解析成当天 0 点）
+_DATE_FULL_RE = re.compile(
+    r"(\d{4})\s*[-/年]\s*(\d{1,2})\s*[-/月]\s*(\d{1,2})\s*日?[\sT]*"
+    r"(\d{1,2}):(\d{2})(?::(\d{2}))?")
+_DATE_SHORT_RE = re.compile(
+    r"(?<!\d)(\d{1,2})\s*[-/月]\s*(\d{1,2})\s*日?[\sT]*"
+    r"(\d{1,2}):(\d{2})(?::(\d{2}))?")
+_TIME_HINT_RE = re.compile(r"time|date|upload|create", re.I)
 
 FOLDER_TYPE = "afolder"
 SPECIAL_TYPES = {"tch-courseware"}  # “教师课件”目录：产品决策不下载，仅列出不遍历
@@ -44,6 +56,8 @@ class MaterialNode:
     loadurl: str = ""
     url: str = ""
     special: bool = False
+    remote_mtime: int = None  # 平台上传时间（Unix 秒；解析失败为 None）
+    remote_time_text: str = ""  # 平台时间原文（用于排查/展示）
     children: list = field(default_factory=list)
 
 
@@ -100,6 +114,68 @@ def _attr(attrs: dict, key: str, default: str = "") -> str:
     return str(val).strip()
 
 
+def _parse_time_text(text: str):
+    """容错解析平台时间文本 → Unix 秒；解析失败返回 None。
+
+    平台格式实测为 "09-07  08:29"（月-日 时:分，无年份）：
+    无年份时按“当前年”推定，若落到未来（超出 1 天缓冲）则回退一年，
+    保证跨年边界（如 1 月看到 12-30）仍解析为上一次的真实上传时间。
+    """
+    if not text:
+        return None
+    m = _DATE_FULL_RE.search(text)
+    if m:
+        year, month, day = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        hh, mm, ss = m.group(4), m.group(5), m.group(6)
+    else:
+        m = _DATE_SHORT_RE.search(text)
+        if not m:
+            return None
+        year, month, day = datetime.now().year, int(m.group(1)), int(m.group(2))
+        hh, mm, ss = m.group(3), m.group(4), m.group(5)
+    try:
+        dt = datetime(year, month, day, int(hh or 0), int(mm or 0), int(ss or 0))
+    except ValueError:
+        return None
+    if not _DATE_FULL_RE.search(text) and dt.timestamp() > time.time() + 86400:
+        try:
+            dt = dt.replace(year=year - 1)
+        except ValueError:   # 闰日回退
+            return None
+    return int(dt.timestamp())
+
+
+def _extract_row_time(ul) -> tuple:
+    """从资料行提取平台上传时间 → (epoch|None, 原文)。
+
+    候选顺序：行属性（data-* 且含 time/date 关键字）→ li 元素（class 含 time/date/upload）
+    → 行全文日期正则兜底（先剔除文件名，避免文件名里的日期误判）。
+    任何失败都返回 (None, "")，绝不影响主解析。
+    """
+    for key, val in ul.attrs.items():
+        if key.startswith("data-") and _TIME_HINT_RE.search(key):
+            text = _attr(ul.attrs, key)
+            ts = _parse_time_text(text)
+            if ts:
+                return ts, text
+    for li in ul.find_all("li"):
+        if not _TIME_HINT_RE.search(" ".join(li.get("class") or [])):
+            continue
+        text = li.get_text(" ", strip=True)
+        ts = _parse_time_text(text)
+        if ts:
+            return ts, text
+    text = ul.get_text(" ", strip=True)
+    name = _attr(ul.attrs, "dataname")
+    if name:
+        text = text.replace(name, " ")
+    ts = _parse_time_text(text)
+    if ts:
+        return ts, _DATE_FULL_RE.search(text).group(0) if _DATE_FULL_RE.search(text) \
+            else _DATE_SHORT_RE.search(text).group(0)
+    return None, ""
+
+
 def parse_datalist(html: str, parent_path: str = ""):
     """解析资料列表 HTML → (节点列表, coursedata_enc)。"""
     soup = BeautifulSoup(html, "lxml")
@@ -113,6 +189,7 @@ def parse_datalist(html: str, parent_path: str = ""):
         is_down = _attr(attrs, "isdown", "1") == "1"
         size_li = ul.select_one("li.dataBody_size_stu")
         size_text = size_li.get_text(" ", strip=True) if size_li else ""
+        remote_ts, remote_text = _extract_row_time(ul)
         object_id = loadurl = url = ""
         m = _TOOPEN_RE.search(str(ul))
         if m:
@@ -125,6 +202,7 @@ def parse_datalist(html: str, parent_path: str = ""):
             is_down=is_down, size_text=size_text,
             relative_path=f"{parent_path}{name}",
             loadurl=loadurl, url=url, special=(ntype in SPECIAL_TYPES),
+            remote_mtime=remote_ts, remote_time_text=remote_text,
         ))
     return nodes, enc
 

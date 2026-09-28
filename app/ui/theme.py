@@ -189,6 +189,7 @@ def status_label(status: str) -> tuple:
         "queued":     ("排队中", "#6E6A62"),
         "running":    ("下载中", "#7A5200"),
         "done":       ("完成", "#6E6A62"),
+        "updated":    ("已更新", "#7A5200"),
         "skip_record":("跳过（记录）", "#6E6A62"),
         "skip_exist": ("跳过（已存在）", "#6E6A62"),
         "forbidden":  ("禁止下载", "#92071C"),

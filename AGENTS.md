@@ -15,13 +15,15 @@
 - **Cookie（含 vc3）不打印、不写日志、不入 git**；`data/`、`downloads/`、`docs/MVP验证报告.md`、`build/`、`dist/`、`.trae/` 均在 .gitignore，永远不要提交（新增敏感目录先补 .gitignore 再提交，勿背清单）
 - **尊重平台权限**：`isdown=0`（教师未开放下载）不强行获取；`tch-courseware`（教师课件）按产品决策不遍历不下载
 - **风控安全**：请求间随机延迟 1~3s（`config.REQUEST_DELAY`）不可删除；只读操作；命中 412/403/429 立即停，不自动硬闯
-- 平台接口细节以 `docs/接口实测文档.md` 为准（2026-09-26 更新，含分页实证）；开源资料里的旧版接口（mooc1/coursedata、ananas 直链、ananas/status）已失效，不要照搬
+- 平台接口细节以 `docs/接口实测文档.md` 为准（2026-09-28 更新，含分页与上传时间字段实证）；开源资料里的旧版接口（mooc1/coursedata、ananas 直链、ananas/status）已失效，不要照搬
 
 ## core 层坑速查（改 app/core 前过一遍）
 
 - **“当前页共 N 个”是每页条数，不是该层总数**——曾据此误判“全量无分页”；分页以层内 `totalPages` 隐藏域为准（`materials._fetch_paged`）
 - 子层解析必须传 `parent_path` 前缀，否则 relative_path 丢目录、下载平铺（曾致 72 文件回归）
 - cldisk 签名直链必须带 `Referer: https://mooc1.chaoxing.com/`；三个 enc（stuenc/coursedata/work）互相独立，均在 `docs/接口实测文档.md`
+- 平台文件上传时间只在列表行 `li.dataBody_time_stu`（形如 `09-22  22:42`，无年份；解析陷阱见接口文档）；cldisk 直链响应头**无 Last-Modified/ETag**（2026-09-28 HEAD 实证），时间不能从下载响应头拿
+- sqlite3 默认返回元组：`Storage.__init__` 必须设 `row_factory = sqlite3.Row`，`get_record` 消费方按列名取值（漏设曾致 verify Step6 TypeError）
 
 ## PySide6 坑速查（写 UI 前过一遍）
 
@@ -35,12 +37,13 @@
 - offscreen 平台下程序退出时 QSystemTrayIcon 会触发 0xC0000409 崩溃伪像（输出已完整、仅退出码异常）——托盘相关冒烟脚本用 `os._exit(0)` 收尾或忽略退出码；windows 平台正常
 - 托盘菜单圆角必须透明三件套（同 widgets.py CourseMenu）：`FramelessWindowHint + NoDropShadowWindowHint + WA_TranslucentBackground`，缺一件就露出系统矩形底
 - 托盘化（窗口隐藏）后退出不能依赖 `self.close()`——`lastWindowClosed` 只在**可见**窗口被关闭时触发，隐藏窗口 close 后进程不退出；托盘「退出」必须显式 `_teardown()` + `QApplication.quit()`（main_window._quit_app）
+- QMenu 关闭后会重放点击事件导致菜单立即重新展开——记录关闭时刻戳，300ms 内的再次点击视为关闭操作直接忽略（widgets.py CoursePicker._closed_at）
 
 ## 深入文档
 
 | 文档 | 内容 |
 | --- | --- |
-| `docs/接口实测文档.md` | 平台接口逆向结论：链路、三个 enc、cldisk Referer 要求、行 schema |
+| `docs/接口实测文档.md` | 平台接口逆向结论：链路、三个 enc、cldisk Referer 要求、行 schema、上传时间字段 |
 | `docs/ui-demo.html` | 前端样式与交互定稿（单文件 HTML，浏览器直接打开；UI 改动以它为基准） |
 | `东方理工LMS助手-开发方案.md` | 原始方案讨论稿（v0.2，M0 前的规划，部分已被实测推进） |
 | `docs/MVP验证报告.md` | MVP 运行产物（个人数据，不入库） |
@@ -50,6 +53,7 @@
 - v1 范围仅"资料"区下载 + 作业展示；"章节"内容留 v1.1
 - "教师课件"（tch-courseware）不做
 - 下载保留网页目录结构（落盘 = 下载根/课程名/相对路径，**不自建「资料」中间层**），已下载（记录/本地文件）跳过；注意：历史旧文件在 `下载根/课程名/资料/` 下，记录键未变会跳过、不自动迁移
+- 文件时间戳校验（2026-09-28 定稿）：下载前比对「平台上传时间（列表 DOM `li.dataBody_time_stu` → `materials._extract_row_time`）vs 本地基线（`downloads.remote_mtime`；无记录时用本地文件 mtime）」——平台较新 → **直接覆盖**本地旧文件（状态 `updated`「已更新」，琥珀色），本地较新（用户自己改过）不覆盖；下载/更新后 `os.utime` 把本地文件时间写成平台上传时间；`downloads` 表轻量迁移新增 `remote_mtime`（旧记录首跑回填基线，仅大小明显不符才重下）；决策是纯函数 `downloader._plan_action`（离线可测）；覆盖走 `os.replace`，更新路径不再加 `(1)` 序号
 - 登录：DrissionPage + 真 Edge + 手动 CAS；Cookie 缓存 `data/cookies.bin`（Windows DPAPI CurrentUser 加密，ctypes 直调，见 `app/core/secret_box.py`；旧明文 cookies.json 首次加载自动迁移删除；跨机器拷贝不可解 → 回退重登录）
 - UI（2026-09-26 定稿）：VI 标准色 `#92071C` + 辅助 `#FDB837`/`#AAA9A1`，三色语义（红=需行动/禁止，琥珀=进行中，灰=完成）；导航仅"资料下载/下载管理/作业列表"，登录页不常驻；"浏览器打开"与双击作业**直接跳系统浏览器不弹窗**；资料树行点击即勾选；下载目录走系统目录对话框（QSettings 持久化，key `download/dir`）
 - 数据加载（2026-09-26 定稿）：登录后仅拉课程列表；「管理课程」（CoursePicker 菜单底部入口）勾选关注课程并持久化；已选课程作业每次启动自动后台拉取、资料树选中时才拉；未选课程自始至终零网络请求；会话失效统一回登录页，风控（412/403/429）立即停止不重试
