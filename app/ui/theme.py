@@ -115,6 +115,9 @@ QHeaderView::section {
 /* 左右上角圆化由 widgets.RoundedHeader 在 paintSection 裁剪实现
    （QSS 的 ::section:first/:last 圆角在 Qt 6 下不生效） */
 QTreeWidget::item { padding: 5px 2px; }
+/* 资料树：数据三列（大小/上传时间/说明）左右各 10px 留白——条目水平内边距 2→12px
+   撑宽 ResizeToContents 尺寸提示；该三列条目居中对齐（materials_page），与居中表头同轴 */
+QTreeWidget#MatTree::item { padding: 5px 12px; }
 QTreeWidget::item:hover { background: rgba(146,7,28,10); }
 QTreeWidget::item:selected { background: transparent; color: #241A1D; }
 QTableWidget::item { padding: 8px 6px; border-bottom: 1px solid rgba(170,169,161,51); }

@@ -170,9 +170,11 @@ select.sel:hover{border-color:var(--brand)}
   border:1px solid var(--line);flex:none;letter-spacing:.2px;line-height:1}
 .node-name{font-weight:500}
 .tree-row.folder>.node-name{font-weight:700}
-.node-size{width:76px;text-align:right;color:var(--muted);font-size:12.5px;flex:none;
+.node-size{width:96px;text-align:center;color:var(--muted);font-size:12.5px;flex:none;
   font-variant-numeric:tabular-nums}
-.node-note{margin-left:auto;font-size:12px;color:var(--gray);flex:none;padding-right:10px}
+.node-time{width:116px;text-align:center;color:var(--muted);font-size:12.5px;flex:none;
+  font-variant-numeric:tabular-nums}
+.node-note{margin-left:auto;font-size:12px;color:var(--gray);flex:none;padding:0 10px}
 .node-note.warn{color:var(--brand)}
 .tree-foot{margin-top:14px;display:flex;align-items:center;gap:12px;padding:14px 20px}
 .tree-foot .sum{font-size:13.5px}
@@ -328,18 +330,18 @@ const F = (name, size, o = {}) => ({ id:++_nid, name, size, type:name.split(".")
 const D = (name, children, o = {}) => ({ id:++_nid, name, size:"", type:"afolder", children, isdown:true, ...o });
 const MATERIALS = {
   "计算机组成原理": [
-    F("课程教学大纲.pdf","1.2MB"),
-    D("第1章 计算机系统概述",[ F("1.1 课程概述.pdf","2.4MB"), F("第1章 讲义.pptx","8.7MB"), F("第1章 导学视频.mp4","118MB"), F("第1章 导学音频.mp3","12.6MB") ]),
-    D("第2章 运算方法与运算器",[ F("2.1 定点运算.pdf","3.1MB"), F("2.2 浮点运算.pdf","2.8MB"), F("第2章 讲义.pptx","9.4MB"), F("运算器实验指导书.docx","1.5MB",{skip:true}) ]),
-    D("习题与答案",[ F("第1章 课后习题.docx","366KB"), F("第1章 参考答案.pdf","528KB",{isdown:false}) ]),
+    F("课程教学大纲.pdf","1.2MB",{time:"09-01 10:24"}),
+    D("第1章 计算机系统概述",[ F("1.1 课程概述.pdf","2.4MB",{time:"09-07 08:29"}), F("第1章 讲义.pptx","8.7MB",{time:"09-14 16:05"}), F("第1章 导学视频.mp4","118MB",{time:"09-14 16:12"}), F("第1章 导学音频.mp3","12.6MB",{time:"09-14 16:13"}) ],{time:"09-07 08:20"}),
+    D("第2章 运算方法与运算器",[ F("2.1 定点运算.pdf","3.1MB",{time:"09-22 22:42"}), F("2.2 浮点运算.pdf","2.8MB",{time:"09-22 22:43"}), F("第2章 讲义.pptx","9.4MB"), F("运算器实验指导书.docx","1.5MB",{skip:true,time:"09-25 09:18"}) ],{time:"09-22 22:40"}),
+    D("习题与答案",[ F("第1章 课后习题.docx","366KB",{time:"09-26 19:02"}), F("第1章 参考答案.pdf","528KB",{isdown:false,time:"09-26 19:03"}) ],{time:"09-26 19:00"}),
     D("教师课件",[],{special:true}),
   ],
   "数据结构与算法": [
-    F("课程实验安排.pdf","820KB"),
-    D("实验指导",[ F("实验一 顺序表与链表.pdf","1.1MB"), F("实验二 栈与队列.pdf","980KB") ]),
+    F("课程实验安排.pdf","820KB",{time:"09-03 14:37"}),
+    D("实验指导",[ F("实验一 顺序表与链表.pdf","1.1MB",{time:"09-18 11:50"}), F("实验二 栈与队列.pdf","980KB",{time:"09-28 08:12"}) ],{time:"09-18 11:45"}),
     F("教材勘误表.pdf","210KB",{isdown:false}),
   ],
-  "线性代数": [ F("教学日历.pdf","300KB"), F("习题册第一册.pdf","6.2MB") ],
+  "线性代数": [ F("教学日历.pdf","300KB",{time:"08-30 09:00"}), F("习题册第一册.pdf","6.2MB") ],
 };
 const NODE_PATH = {};   // id → 相对路径（落盘 = 下载根/课程名/相对路径，无「资料」中间层）
 for(const _cn in MATERIALS){
@@ -478,6 +480,7 @@ function renderNode(nd){
     ${caret}${cb}<span class="node-ico">${ico}</span>
     <span class="node-name">${nd.name}</span>
     <span class="node-size">${nd.size||""}</span>
+    <span class="node-time">${nd.time||""}</span>
     <span class="node-note ${dis||nd.skip?"warn":""}">${note}</span></div>`;
   if(nd.children) html += `<ul ${nd._open===false?'style="display:none"':""} data-ul="${nd.id}">`
     + nd.children.map(ch=>renderNode(ch)).join("") + `</ul>`;

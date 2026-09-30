@@ -6,6 +6,7 @@
 - 勾选状态以 self._checked（叶子 data_id 集合）为唯一状态源，树控件仅作视觉呈现
 """
 import os
+from datetime import datetime
 
 from PySide6.QtCore import Qt, QSettings, QSize, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
@@ -21,6 +22,16 @@ from app.ui.widgets import CoursePicker, ElidedLabel, RoundedHeader, page_shell
 from app.utils import parse_size_text
 
 DEFAULT_DIR = str(config.DOWNLOAD_ROOT)
+
+
+def _fmt_time(node) -> str:
+    """资料行上传时间展示文本：平台原文（规范化空白）→ remote_mtime 格式化兜底 → 空。"""
+    text = " ".join((node.remote_time_text or "").split())
+    if text:
+        return text
+    if node.remote_mtime:
+        return datetime.fromtimestamp(node.remote_mtime).strftime("%m-%d %H:%M")
+    return ""
 
 
 class CheckTree(QTreeWidget):
@@ -130,13 +141,15 @@ class MaterialsPage(QWidget):
 
         # ---- 资料树 ----
         self._tree = CheckTree()
-        self._tree.setColumnCount(3)
-        self._tree.setHeaderLabels(["文件", "大小", "说明"])
+        self._tree.setObjectName("MatTree")   # theme.py 按名注入数据列左右留白
+        self._tree.setColumnCount(4)
+        self._tree.setHeaderLabels(["文件", "大小", "上传时间", "说明"])
         self._tree.setHeader(RoundedHeader(self._tree))
         header = self._tree.header()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self._tree.setIconSize(QSize(22, 22))
         self._tree.setSelectionMode(QTreeWidget.SelectionMode.NoSelection)
         self._tree.setFrameShape(QFrame.NoFrame)
@@ -277,7 +290,7 @@ class MaterialsPage(QWidget):
         self._tree.clear()
         course = self._current_course()
         if course is None:
-            item = QTreeWidgetItem(["尚未选择课程", "", "点击课程框 → ⚙ 管理课程 添加关注课程"])
+            item = QTreeWidgetItem(["尚未选择课程", "", "", "点击课程框 → ⚙ 管理课程 添加关注课程"])
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self._tree.invisibleRootItem().addChild(item)
         else:
@@ -286,7 +299,7 @@ class MaterialsPage(QWidget):
                 err = self._errors.get(course_key(course))
                 text = (f"资料列表加载失败：{err}（重新选择该课程可重试）"
                         if err else "正在加载资料列表…")
-                item = QTreeWidgetItem([text, "", ""])
+                item = QTreeWidgetItem([text, "", "", ""])
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
                 self._tree.invisibleRootItem().addChild(item)
             else:
@@ -314,7 +327,11 @@ class MaterialsPage(QWidget):
             icon = file_icon(node.node_type)
             note = node.node_type.upper()
 
-        item = QTreeWidgetItem([f"{prefix}{node.name}", node.size_text, note])
+        item = QTreeWidgetItem([f"{prefix}{node.name}", node.size_text, _fmt_time(node), note])
+        # 数据三列居中：表头默认就是 AlignHCenter|AlignVCenter，条目跟随同轴对齐
+        center = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+        for col in (1, 2, 3):
+            item.setTextAlignment(col, center)
         if icon is not None:
             item.setIcon(0, icon)
         if checkable:
