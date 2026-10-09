@@ -237,7 +237,7 @@ select.sel:hover{border-color:var(--brand)}
         <div class="card login-card">
           <div class="page-title">登录超星学习通（校园版）</div>
           <div class="page-hint" style="margin-top:8px;line-height:1.9">
-            将打开真实 Edge 浏览器跳转学校统一身份认证（CAS），请在浏览器中手动完成登录。<br>
+            将打开 Edge 或 Chrome 浏览器（自动检测）跳转学校统一身份认证（CAS），请在浏览器中手动完成登录。<br>
             登录成功后助手会缓存会话 Cookie，下次运行免登录（失效自动重新引导）。<br>
             <b>※ Demo 模式：不真正打开浏览器，仅模拟各步骤。</b>
           </div>
@@ -405,7 +405,7 @@ function showPage(name){
 document.querySelectorAll(".nav-item").forEach(n=>n.onclick=()=>showPage(n.dataset.page));
 
 /* ================= 登录（模拟；导航不常驻，仅作主界面） ================= */
-const LOGIN_STEPS=["启动 Edge 浏览器","打开 CAS 统一身份认证页","等待手动完成登录","校验会话 Cookie（vc3）","缓存 Cookie 到 data/cookies.json"];
+const LOGIN_STEPS=["读取本地 Cookie 缓存（DPAPI 加密）","启动浏览器（Edge/Chrome）打开统一身份认证","等待手动完成 CAS 登录","缓存会话 Cookie（DPAPI 加密）"];
 function renderLoginSteps(states){
   $("#login-steps").innerHTML = LOGIN_STEPS.map((s,i)=>{
     const st=states[i]||"";
