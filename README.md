@@ -18,7 +18,7 @@
 
 1. **下载**：到 [Releases](https://github.com/DiYanYe/eitech-lms-helper/releases) 下载 `eitech-lms-helper-v1.0.zip`
 2. **解压**：放到任意**可写**目录（桌面、D 盘都行；**不要放 Program Files**）
-3. **登录**：双击 `东方理工LMS助手.exe`，点「登录」会弹出 Edge 窗口，完成学校 CAS 登录后自动回到软件
+3. **登录**：双击 `东方理工LMS助手.exe`，点「登录」会弹出 Edge 或 Chrome 窗口（自动检测），完成学校 CAS 登录后自动回到软件
 4. **选课程**：左上角课程选择器 → 「管理课程」→ 勾选你要关注的课程（只勾选的课程才会拉取数据）
 5. **下载**：在「资料下载」页选课程 → 勾选文件/文件夹 → 点开始下载。文件保存在 `下载目录/<课程名>/<文件夹>/`，与网页上的目录结构一致
 6. **看作业**：左侧切到「作业列表」，双击条目在浏览器中打开作业详情
@@ -46,12 +46,12 @@
 **Q：杀毒软件报毒？**
 本程序未做代码签名，打包方式容易被误报。在本机将其加入信任/白名单即可，也可自行从源码运行（见下）。
 
-**Q：第一次登录弹出的 Edge 很久没反应？**
-Edge 首次以新配置启动会偏慢，等几十秒；之后会快很多。
+**Q：第一次登录弹出的浏览器很久没反应？**
+浏览器首次以新配置启动会偏慢，等几十秒；之后会快很多。
 
 ## 环境要求
 
-- Windows 10 / 11 + 系统自带的 Microsoft Edge
+- Windows 10 / 11 + Microsoft Edge 或 Google Chrome（其一即可，自动检测，Edge 优先）
 - 使用 Release 包无需安装 Python；仅"从源码运行"需要 Python 3.12
 
 ## 面向开发者
@@ -68,7 +68,7 @@ python scripts\make_ico.py             # 仅 logo 变更时需要
 pyinstaller 东方理工LMS助手.spec --noconfirm   # 产物：dist/东方理工LMS助手/
 ```
 
-- 登录链路：DrissionPage 驱动真实 Edge 完成手动 CAS 登录，Cookie 经 Windows DPAPI 加密落盘（`data/cookies.bin`，仅本机当前用户可解密），请求链路走 httpx 并带随机限速
+- 登录链路：DrissionPage 驱动真实 Edge/Chrome（自动检测）完成手动 CAS 登录，Cookie 经 Windows DPAPI 加密落盘（`data/cookies.bin`，仅本机当前用户可解密），请求链路走 httpx 并带随机限速
 - 平台接口的逆向结论见 [`docs/接口实测文档.md`](docs/接口实测文档.md)（改接口适配层前必读）；项目约定与踩坑速查见 [`AGENTS.md`](AGENTS.md)
 
 ## 合规与免责

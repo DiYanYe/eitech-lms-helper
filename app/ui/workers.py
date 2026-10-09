@@ -18,11 +18,11 @@ from app.core.storage import Storage
 
 
 class LoginWorker(QThread):
-    """登录线程：Cookie 缓存优先，缺失/失效时 DrissionPage + 真 Edge 手动 CAS 登录。"""
+    """登录线程：Cookie 缓存优先，缺失/失效时 DrissionPage + 系统 Edge/Chrome 手动 CAS 登录。"""
 
     STEPS = [
         "读取本地 Cookie 缓存（DPAPI 加密）",
-        "启动 Edge 打开统一身份认证",
+        "启动浏览器（Edge/Chrome）打开统一身份认证",
         "等待手动完成 CAS 登录",
         "缓存会话 Cookie（DPAPI 加密）",
     ]
@@ -58,7 +58,7 @@ class LoginWorker(QThread):
         self.step_changed.emit(1, "running")
         try:
             result = browser.login_interactive(should_stop=lambda: self._stop)
-        except browser.EdgeNotFoundError as e:
+        except browser.BrowserNotFoundError as e:
             self.login_failed.emit(str(e))
             return
         except browser.LoginTimeoutError as e:

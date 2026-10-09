@@ -19,6 +19,7 @@ else:
 
 DATA_DIR = BASE_DIR / "data"
 EDGE_PROFILE = DATA_DIR / "edge_profile"
+CHROME_PROFILE = DATA_DIR / "chrome_profile"   # Chrome 回退登录用（与 Edge profile 隔离）
 LOG_DIR = DATA_DIR / "logs"
 DB_PATH = DATA_DIR / "mvp.db"
 DOWNLOAD_ROOT = BASE_DIR / "downloads"

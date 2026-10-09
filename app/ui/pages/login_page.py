@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""登录引导页：真实 CAS 手动登录（DrissionPage + 真 Edge，Cookie DPAPI 加密缓存）。
+"""登录引导页：真实 CAS 手动登录（DrissionPage + 系统 Edge/Chrome，Cookie DPAPI 加密缓存）。
 
 未登录时它就是主界面（不常驻导航）；登录成功后自动进入资料下载。
 """
@@ -43,7 +43,7 @@ class LoginPage(QWidget):
         lay.addWidget(title)
 
         hint = QLabel(
-            "点击下方按钮将打开真实 Edge 浏览器，跳转学校统一身份认证（CAS）手动完成登录\n"
+            "点击下方按钮将打开 Edge 或 Chrome 浏览器（自动检测），跳转学校统一身份认证（CAS）手动完成登录\n"
             "（重新登录同样会打开浏览器，不会复用本地缓存）；启动时会先用本地缓存自动尝试。\n"
             "登录成功后会话 Cookie 以 DPAPI 加密缓存，仅当前 Windows 用户可解密，失效后自动重新引导。")
         hint.setObjectName("Muted")

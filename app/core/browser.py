@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DrissionPage 浏览器桥：启动系统 Edge（持久化 profile）、手动 CAS 登录、Cookie 导出。
+"""DrissionPage 浏览器桥：启动系统 Edge/Chrome（持久化 profile）、手动 CAS 登录、Cookie 导出。
 
 安全约定：Cookie 值不打印、不写日志。
 本地缓存：Cookie 以 Windows DPAPI（CurrentUser 作用域）加密存于 data/cookies.bin；
@@ -20,8 +20,8 @@ class LoginTimeoutError(Exception):
     """等待手动登录超时。"""
 
 
-class EdgeNotFoundError(Exception):
-    """未找到系统 Edge。"""
+class BrowserNotFoundError(Exception):
+    """未找到可用的 Chromium 系浏览器（Edge/Chrome）。"""
 
 
 def cookies_cache_path() -> Path:
@@ -87,38 +87,69 @@ def discard_cookies():
         pass
 
 
-def find_edge() -> str:
-    """定位系统 Edge：常规安装路径 → 注册表回退。"""
-    candidates = [
-        Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
-        Path(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"),
-    ]
-    for p in candidates:
-        if p.exists():
-            return str(p)
+# 浏览器探测表：Edge 优先（Windows 自带、与历史版本行为一致），Chrome 回退。
+# 每项 = (显示名, 专用 profile 目录, 常规安装路径候选, 注册表 App Paths 子键名)
+_BROWSER_CANDIDATES = [
+    ("Microsoft Edge", config.EDGE_PROFILE,
+     [r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+      r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"],
+     "msedge.exe"),
+    ("Google Chrome", config.CHROME_PROFILE,
+     [r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+      r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+      str(Path.home() / "AppData" / "Local" / "Google" / "Chrome"
+          / "Application" / "chrome.exe")],   # 现代 Chrome 默认按用户安装
+     "chrome.exe"),
+]
+_PROFILE_BY_NAME = {name: profile for name, profile, _paths, _exe in _BROWSER_CANDIDATES}
+
+
+def _registry_lookup(exe_name: str) -> str | None:
+    """查注册表 App Paths（先 HKLM 后 HKCU，覆盖 Chrome 按用户安装），未命中返回 None。"""
     try:
         import winreg
-        with winreg.OpenKey(
-            winreg.HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe",
-        ) as key:
-            val, _ = winreg.QueryValueEx(key, "")
-            if val and Path(val).exists():
-                return val
-    except OSError:
-        pass
-    raise EdgeNotFoundError("未找到 Microsoft Edge，请确认系统已安装")
+    except ImportError:   # 非 Windows（理论上不会走到，登录链路仅限 Windows）
+        return None
+    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        try:
+            with winreg.OpenKey(
+                hive,
+                rf"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{exe_name}",
+            ) as key:
+                val, _ = winreg.QueryValueEx(key, "")
+                if val and Path(val).exists():
+                    return val
+        except OSError:
+            continue
+    return None
 
 
-def build_options() -> ChromiumOptions:
-    config.EDGE_PROFILE.mkdir(parents=True, exist_ok=True)
+def find_browser() -> tuple:
+    """定位系统 Chromium 系浏览器（Edge 优先，Chrome 回退）→ (exe 路径, 显示名)。"""
+    for name, _profile, paths, exe in _BROWSER_CANDIDATES:
+        for p in paths:
+            if Path(p).exists():
+                return p, name
+        reg = _registry_lookup(exe)
+        if reg:
+            return reg, name
+    raise BrowserNotFoundError("未找到 Microsoft Edge 或 Google Chrome，请安装其一后重试")
+
+
+def build_options() -> tuple:
+    """构建 ChromiumOptions → (options, 浏览器显示名)。
+
+    专用持久化 profile 目录（按浏览器隔离），不与用户日常浏览器冲突；登录态长期保留。
+    """
+    browser_path, browser_name = find_browser()
+    profile = _PROFILE_BY_NAME[browser_name]
+    profile.mkdir(parents=True, exist_ok=True)
     co = ChromiumOptions()
-    co.set_browser_path(find_edge())
-    # 专用持久化目录，不与用户日常 Edge 冲突；登录态长期保留
-    co.set_user_data_path(str(config.EDGE_PROFILE))
+    co.set_browser_path(browser_path)
+    co.set_user_data_path(str(profile))
     co.set_argument("--no-first-run")
     co.set_argument("--no-default-browser-check")
-    return co
+    return co, browser_name
 
 
 def export_cookies(page) -> dict:
@@ -146,11 +177,11 @@ def login_interactive(timeout: int = None, should_stop=None):
     should_stop：可选无参回调，轮询间隙命中即取消并返回 None（finally 仍关浏览器）。
     """
     timeout = timeout or config.LOGIN_TIMEOUT
-    co = build_options()
+    co, browser_name = build_options()
     page = ChromiumPage(co)
     try:
         ua = page.user_agent
-        print(f"  已启动 Edge，请在弹出的窗口中完成统一身份认证登录（最长等待 {timeout} 秒）...")
+        print(f"  已启动 {browser_name}，请在弹出的窗口中完成统一身份认证登录（最长等待 {timeout} 秒）...")
         page.get(config.LOGIN_PAGE)
         deadline = time.time() + timeout
         while time.time() < deadline:
